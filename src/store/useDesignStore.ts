@@ -4,6 +4,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PlacedPlant, PlacedStructure, SiteInfo, StructureType, SunNeed } from '../types';
 import { LatLng } from '../data/geo';
 import { STRUCTURE_META } from '../data/structures';
+import {
+  RegionProfile,
+  resolveRegionProfile,
+  isProfileFresh,
+} from '../data/region';
+
+export type RegionStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 let instanceCounter = 0;
 function newInstanceId(prefix = 'pp'): string {
@@ -17,6 +24,9 @@ interface DesignState {
   structures: PlacedStructure[];
   /** Inferred property outline; empty when the user hasn't marked one. */
   boundary: LatLng[];
+  /** Region intelligence resolved from the site coordinates. */
+  region: RegionProfile | null;
+  regionStatus: RegionStatus;
   hydrated: boolean;
 
   setLocation: (latitude: number, longitude: number, zone: number) => void;
@@ -38,6 +48,9 @@ interface DesignState {
   moveBoundaryPoint: (index: number, point: LatLng) => void;
   clearBoundary: () => void;
 
+  /** Resolve region data for a coordinate (cached; force to refetch). */
+  resolveRegion: (lat: number, lon: number, force?: boolean) => Promise<void>;
+
   setHydrated: () => void;
 }
 
@@ -52,11 +65,13 @@ const initialSite: SiteInfo = {
 
 export const useDesignStore = create<DesignState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       site: initialSite,
       placed: [],
       structures: [],
       boundary: [],
+      region: null,
+      regionStatus: 'idle',
       hydrated: false,
 
       setLocation: (latitude, longitude, zone) =>
@@ -142,6 +157,30 @@ export const useDesignStore = create<DesignState>()(
 
       clearBoundary: () => set(() => ({ boundary: [] })),
 
+      resolveRegion: async (lat, lon, force = false) => {
+        const { region } = get();
+        if (!force && isProfileFresh(region, lat, lon)) {
+          set({ regionStatus: 'ready' });
+          return;
+        }
+        set({ regionStatus: 'loading' });
+        try {
+          const month = new Date().getMonth() + 1;
+          const profile = await resolveRegionProfile(lat, lon, month);
+          set((s) => ({
+            region: profile,
+            regionStatus: 'ready',
+            // Adopt the resolved zone unless the user set one manually.
+            site:
+              s.site.zoneSource === 'manual'
+                ? s.site
+                : { ...s.site, zone: profile.zone, zoneSource: 'auto' },
+          }));
+        } catch {
+          set({ regionStatus: 'error' });
+        }
+      },
+
       setHydrated: () => set(() => ({ hydrated: true })),
     }),
     {
@@ -152,6 +191,7 @@ export const useDesignStore = create<DesignState>()(
         placed: s.placed,
         structures: s.structures,
         boundary: s.boundary,
+        region: s.region,
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHydrated();

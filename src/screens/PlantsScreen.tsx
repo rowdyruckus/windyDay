@@ -14,6 +14,7 @@ import { PLANTS } from '../data/plants';
 import { suitability } from '../data/climate';
 import { zoneLabel } from '../data/climate';
 import { useDesignStore } from '../store/useDesignStore';
+import { nativePlantGenera } from '../data/region';
 import { PlantCard } from '../components/PlantCard';
 import { ForestLayer } from '../types';
 
@@ -23,6 +24,8 @@ export function PlantsScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const site = useDesignStore((s) => s.site);
+  const region = useDesignStore((s) => s.region);
+  const nativeGenera = useMemo(() => nativePlantGenera(region), [region]);
 
   const [layer, setLayer] = useState<LayerFilter>('all');
   const [edibleOnly, setEdibleOnly] = useState(false);
@@ -101,6 +104,7 @@ export function PlantsScreen() {
           <PlantCard
             plant={item}
             site={site}
+            native={nativeGenera.has(item.scientific.split(' ')[0].toLowerCase())}
             onPress={() => navigation.navigate('PlantDetail', { plantId: item.id })}
           />
         )}

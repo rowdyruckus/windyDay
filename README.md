@@ -17,7 +17,9 @@ be, then help you get there.**
   bounty* — the most abundant month of your year — to inspire you.
 - **📍 Site** — Find your land from above on a satellite map, drop a pin (or use
   your location), and set your USDA hardiness zone and sun exposure. Everything
-  the app suggests is tuned to this.
+  the app suggests is tuned to this. The app also **reads your region** from live
+  data: your climate-derived hardiness zone, growing-season length and a named
+  biome (e.g. "Warm-summer Mediterranean").
 - **🌱 Plants** — A database of fruit & nut trees, edible and medicinal shrubs,
   vines, herbs and ground covers, filtered to what will actually thrive on your
   site. Each plant shows its forest layer, uses, seasonal calendar and **guild
@@ -30,6 +32,33 @@ be, then help you get there.**
   control, fertilizer and gentle tilling.
 - **📅 Timeline** — A month-by-month calendar of when to plant, tend and harvest
   everything in your design, with your peak-bounty month highlighted.
+
+## Region intelligence
+
+Given your coordinates, the app resolves a **region profile** from live sources,
+in parallel and with graceful offline fallback (`src/data/region/`):
+
+- **[Open-Meteo](https://open-meteo.com/)** — 10 years of historical climate
+  normals → a globally-valid USDA hardiness zone (from the average annual
+  minimum temperature) and frost-free growing-season length.
+- **Köppen-Geiger** — the biome is **computed on-device** from the monthly
+  temperature/precipitation normals (Peel et al. 2007 criteria), so no external
+  dataset is bundled and it works worldwide.
+- **[USDA phzmapi](https://phzmapi.org/)** — for US locations, refines the zone
+  precisely via a reverse-geocoded ZIP.
+- **[iNaturalist](https://www.inaturalist.org/api)** — the *actual* butterflies,
+  birds and native plants observed near you power the living Vision scene and a
+  "🌿 Native here" badge on matching plants.
+
+Results are cached on-device (keyed by coordinate, 30-day freshness). If the
+network is unavailable, the app falls back to a latitude-based zone estimate and
+its curated planting data, so it always works.
+
+### Data attribution
+
+Open-Meteo data is CC-BY 4.0. iNaturalist observations and photos belong to
+their observers under their own licenses — we link back to each taxon. Köppen
+classification follows Peel, Finlayson & McMahon (2007).
 
 ## The seven layers
 
@@ -76,6 +105,7 @@ src/
   audio/        ambient soundscape hook
   components/   reusable UI (plant cards, coop marker, hens, leaves, bird bath)
   data/         plant database, climate/zone logic, seasonal + geo helpers
+    region/     live region intelligence (Open-Meteo, Köppen, phzmapi, iNat)
   navigation/   tab + stack navigation
   screens/      Vision, Site, Plants, PlantDetail, Design, Timeline
   store/        persisted design state (zustand)

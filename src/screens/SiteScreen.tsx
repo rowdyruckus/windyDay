@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -31,9 +31,19 @@ export function SiteScreen() {
   const setZone = useDesignStore((s) => s.setZone);
   const setSun = useDesignStore((s) => s.setSun);
   const setLabel = useDesignStore((s) => s.setLabel);
+  const resolveRegion = useDesignStore((s) => s.resolveRegion);
+  const regionInfo = useDesignStore((s) => s.region);
+  const regionStatus = useDesignStore((s) => s.regionStatus);
   const [loading, setLoading] = useState(false);
 
   const hasLocation = site.latitude != null && site.longitude != null;
+
+  // Resolve region intelligence when we have (or gain) a location.
+  useEffect(() => {
+    if (site.latitude != null && site.longitude != null) {
+      resolveRegion(site.latitude, site.longitude);
+    }
+  }, [site.latitude, site.longitude, resolveRegion]);
 
   async function locate() {
     try {
@@ -127,7 +137,68 @@ export function SiteScreen() {
         )}
       </Pressable>
 
-      <Card style={{ marginTop: spacing.lg }}>
+      {hasLocation && (
+        <Card style={{ marginTop: spacing.lg }}>
+          <View style={styles.regionHead}>
+            <SectionTitle style={{ marginBottom: 0 }}>Your region</SectionTitle>
+            {regionStatus === 'loading' && (
+              <ActivityIndicator size="small" color={colors.primary} />
+            )}
+          </View>
+
+          {regionInfo?.koppen ? (
+            <>
+              <Text style={styles.biome}>
+                🌍 {regionInfo.koppen.label}
+                <Text style={styles.koppenCode}> · {regionInfo.koppen.code}</Text>
+              </Text>
+              <Text style={styles.biomeBlurb}>{regionInfo.koppen.blurb}</Text>
+            </>
+          ) : regionStatus === 'loading' ? (
+            <Text style={styles.cardHint}>Reading your local climate…</Text>
+          ) : (
+            <Text style={styles.cardHint}>
+              Couldn't reach climate data — using a latitude estimate. Pull to
+              refresh when you're back online.
+            </Text>
+          )}
+
+          {regionInfo && (
+            <View style={styles.regionStats}>
+              {regionInfo.annualMinTempC != null && (
+                <Stat
+                  label="Coldest low"
+                  value={`${Math.round(regionInfo.annualMinTempC)}°C`}
+                />
+              )}
+              {regionInfo.growingSeasonDays != null && (
+                <Stat
+                  label="Frost-free"
+                  value={`${regionInfo.growingSeasonDays} days`}
+                />
+              )}
+              <Stat
+                label="Zone source"
+                value={
+                  regionInfo.zoneSource === 'phzmapi'
+                    ? 'USDA'
+                    : regionInfo.zoneSource === 'open-meteo'
+                    ? 'Climate'
+                    : 'Latitude'
+                }
+              />
+            </View>
+          )}
+
+          {regionInfo && regionInfo.sources.length > 0 && (
+            <Text style={styles.sources}>
+              Sources: {regionInfo.sources.join(' · ')}
+            </Text>
+          )}
+        </Card>
+      )}
+
+      <Card style={{ marginTop: spacing.md }}>
         <SectionTitle>Site name</SectionTitle>
         <TextInput
           style={styles.input}
@@ -189,8 +260,41 @@ export function SiteScreen() {
   );
 }
 
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.stat}>
+      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
+  regionHead: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  biome: { color: colors.text, fontSize: 17, fontWeight: '700' },
+  koppenCode: { color: colors.textMuted, fontSize: 14, fontWeight: '600' },
+  biomeBlurb: { color: colors.textMuted, fontSize: 13, marginTop: 2, lineHeight: 19 },
+  regionStats: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  stat: {
+    flex: 1,
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: radius.sm,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+  },
+  statValue: { color: colors.text, fontSize: 15, fontWeight: '800' },
+  statLabel: { color: colors.textMuted, fontSize: 11, marginTop: 2 },
+  sources: { color: colors.textMuted, fontSize: 11, marginTop: spacing.md, fontStyle: 'italic' },
   h1: { color: colors.text, fontSize: 28, fontWeight: '800' },
   sub: { color: colors.textMuted, fontSize: 14, marginTop: 4, marginBottom: spacing.lg, lineHeight: 20 },
   mapWrap: {

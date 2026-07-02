@@ -10,11 +10,13 @@ export function PlantCard({
   site,
   onPress,
   right,
+  native,
 }: {
   plant: Plant;
   site: SiteInfo;
   onPress?: () => void;
   right?: React.ReactNode;
+  native?: boolean;
 }) {
   const suit = suitability(plant, site);
   const layer = LAYER_META[plant.layer];
@@ -43,6 +45,9 @@ export function PlantCard({
           )}
           {plant.nitrogenFixer && (
             <Pill label="N-fixer" color={colors.accent} textColor="#0f1a12" />
+          )}
+          {native && (
+            <Pill label="🌿 Native here" color={colors.primaryDark} textColor="#eef4ee" />
           )}
         </View>
         <View style={styles.suitRow}>

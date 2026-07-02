@@ -1,11 +1,11 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   Pressable,
-  Platform,
+  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import MapView from 'react-native-maps';
@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { colors, radius, spacing } from '../theme';
 import { useDesignStore, usePlacedPlantIds } from '../store/useDesignStore';
+import { SpeciesLite } from '../data/region';
 import {
   MONTHS_LONG,
   peakBountyMonth,
@@ -31,7 +32,16 @@ export function VisionScreen() {
   const navigation = useNavigation<any>();
   const site = useDesignStore((s) => s.site);
   const placedIds = usePlacedPlantIds();
+  const region = useDesignStore((s) => s.region);
+  const resolveRegion = useDesignStore((s) => s.resolveRegion);
   const sound = useSoundscape();
+
+  // Make sure region life is loaded even if the user lands here first.
+  useEffect(() => {
+    if (site.latitude != null && site.longitude != null) {
+      resolveRegion(site.latitude, site.longitude);
+    }
+  }, [site.latitude, site.longitude, resolveRegion]);
 
   const peakMonth = useMemo(() => peakBountyMonth(placedIds), [placedIds]);
   const fruiting = useMemo(
@@ -151,6 +161,24 @@ export function VisionScreen() {
           )}
         </View>
 
+        {/* ---- Real local life ---- */}
+        {region && (region.butterflies.length > 0 || region.birds.length > 0) && (
+          <View style={styles.section}>
+            <Text style={styles.kicker}>LIFE AT YOUR DAWN</Text>
+            <Text style={styles.bountyTitle}>Who visits your morning</Text>
+            <Text style={styles.bountyBody}>
+              Really seen near you — from thousands of iNaturalist observations.
+            </Text>
+
+            {region.butterflies.length > 0 && (
+              <SpeciesStrip title="🦋 Butterflies" species={region.butterflies} />
+            )}
+            {region.birds.length > 0 && (
+              <SpeciesStrip title="🐦 Birdsong from" species={region.birds} />
+            )}
+          </View>
+        )}
+
         {/* ---- Calls to action ---- */}
         <View style={styles.section}>
           <CTA
@@ -177,6 +205,40 @@ export function VisionScreen() {
           "The best time to plant a tree was 20 years ago. The second best time
           is now."
         </Text>
+      </ScrollView>
+    </View>
+  );
+}
+
+function SpeciesStrip({
+  title,
+  species,
+}: {
+  title: string;
+  species: SpeciesLite[];
+}) {
+  return (
+    <View style={{ marginTop: spacing.md }}>
+      <Text style={styles.stripTitle}>{title}</Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ gap: spacing.sm, paddingVertical: 4 }}
+      >
+        {species.map((s) => (
+          <View key={s.id} style={styles.speciesCard}>
+            {s.photo ? (
+              <Image source={{ uri: s.photo }} style={styles.speciesPhoto} />
+            ) : (
+              <View style={[styles.speciesPhoto, styles.speciesPhotoEmpty]}>
+                <Text style={{ fontSize: 22 }}>🌿</Text>
+              </View>
+            )}
+            <Text style={styles.speciesName} numberOfLines={2}>
+              {s.common ?? s.name}
+            </Text>
+          </View>
+        ))}
       </ScrollView>
     </View>
   );
@@ -300,6 +362,16 @@ const styles = StyleSheet.create({
   },
   fruitIcon: { fontSize: 18, marginRight: 6 },
   fruitName: { color: colors.text, fontWeight: '600', fontSize: 13 },
+  stripTitle: { color: colors.textMuted, fontSize: 13, fontWeight: '700', marginBottom: 4 },
+  speciesCard: { width: 88 },
+  speciesPhoto: {
+    width: 88,
+    height: 88,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceAlt,
+  },
+  speciesPhotoEmpty: { alignItems: 'center', justifyContent: 'center' },
+  speciesName: { color: colors.text, fontSize: 12, marginTop: 4, fontWeight: '600' },
   cta: {
     flexDirection: 'row',
     alignItems: 'center',
