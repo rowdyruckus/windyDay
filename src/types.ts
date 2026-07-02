@@ -58,16 +58,18 @@ export interface PlacedPlant {
 }
 
 /** Non-plant elements you can place — animals, water, structures. */
-export type StructureType = 'coop';
+export type StructureType = 'coop' | 'beehive' | 'pond' | 'rainbarrel';
 
-/** A structure (e.g. a chicken coop) placed onto the design canvas. */
+/** A structure (coop, beehive, pond, rain barrel) placed on the canvas. */
 export interface PlacedStructure {
   instanceId: string;
   type: StructureType;
   latitude: number;
   longitude: number;
   /** Coop: number of birds, used to size the coop and its foraging run. */
-  flockSize: number;
+  flockSize?: number;
+  /** Pond/beehive: radius in metres of the water body or benefit zone. */
+  radiusM?: number;
 }
 
 export interface SiteInfo {

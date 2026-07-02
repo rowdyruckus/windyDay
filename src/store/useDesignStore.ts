@@ -41,7 +41,10 @@ interface DesignState {
 
   placeStructure: (type: StructureType, latitude: number, longitude: number) => void;
   moveStructure: (instanceId: string, latitude: number, longitude: number) => void;
-  setFlockSize: (instanceId: string, flockSize: number) => void;
+  updateStructure: (
+    instanceId: string,
+    patch: Partial<Pick<PlacedStructure, 'flockSize' | 'radiusM'>>
+  ) => void;
   removeStructure: (instanceId: string) => void;
 
   setBoundary: (points: LatLng[]) => void;
@@ -124,7 +127,11 @@ export const useDesignStore = create<DesignState>()(
               type,
               latitude,
               longitude,
-              flockSize: STRUCTURE_META[type].defaultFlock,
+              flockSize: type === 'coop' ? STRUCTURE_META.coop.defaultFlock : undefined,
+              radiusM:
+                type === 'pond' || type === 'beehive'
+                  ? STRUCTURE_META[type].defaultRadiusM
+                  : undefined,
             },
           ],
         })),
@@ -136,10 +143,10 @@ export const useDesignStore = create<DesignState>()(
           ),
         })),
 
-      setFlockSize: (instanceId, flockSize) =>
+      updateStructure: (instanceId, patch) =>
         set((s) => ({
           structures: s.structures.map((st) =>
-            st.instanceId === instanceId ? { ...st, flockSize } : st
+            st.instanceId === instanceId ? { ...st, ...patch } : st
           ),
         })),
 

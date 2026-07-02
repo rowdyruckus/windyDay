@@ -17,10 +17,8 @@
     "android": {
       "package": "com.letsplantparadise.app",
       "adaptiveIcon": {
-        "backgroundColor": "#0f1a12",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundColor": "#f2a56a",
+        "foregroundImage": "./assets/android-icon-foreground.png"
       },
       "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"],
       "predictiveBackGestureEnabled": false
@@ -33,6 +31,15 @@
         "expo-location",
         {
           "locationWhenInUsePermission": "We use your location to center the satellite map on your land and estimate your growing zone."
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 240,
+          "resizeMode": "contain",
+          "backgroundColor": "#0f1a12"
         }
       ]
     ]

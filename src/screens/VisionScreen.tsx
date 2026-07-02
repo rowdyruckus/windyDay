@@ -93,8 +93,15 @@ export function VisionScreen() {
           {/* Leaves drifting on a light breeze, glistening */}
           <GlisteningLeaves height={320} />
 
-          {/* Butterflies among the plants and a softly bubbling bird bath */}
-          <LivingScene height={320} />
+          {/* Butterflies among the plants and a softly bubbling bird bath —
+              real local species when we have them, emoji otherwise. */}
+          <LivingScene
+            height={320}
+            butterflyPhotos={(region?.butterflies ?? [])
+              .map((b) => b.photo)
+              .filter((p): p is string => !!p)
+              .slice(0, 3)}
+          />
 
           {/* Hens pecking and wandering along the ground */}
           <Hens height={320} />

@@ -27,9 +27,10 @@ be, then help you get there.**
 - **🗺️ Design** — Place suggested plants onto the satellite view of your land.
   Each planting shows its true-to-scale mature spread. Outline your **property
   boundary** and line the perimeter with area-appropriate screening species for
-  privacy and a sense of enclosure. Drop in a **chicken coop** with an adjustable
-  flock and a true-to-scale foraging run — closing the loop with eggs, pest
-  control, fertilizer and gentle tilling.
+  privacy and a sense of enclosure. **Build** structures too — a **chicken coop**
+  (adjustable flock + foraging run), a **beehive** (pollination zone), a **pond**
+  (resizable), and **rain barrels** — each a hand-drawn marker with its
+  permaculture benefits.
 - **📅 Timeline** — A month-by-month calendar of when to plant, tend and harvest
   everything in your design, with your peak-bounty month highlighted.
 
@@ -47,8 +48,8 @@ in parallel and with graceful offline fallback (`src/data/region/`):
 - **[USDA phzmapi](https://phzmapi.org/)** — for US locations, refines the zone
   precisely via a reverse-geocoded ZIP.
 - **[iNaturalist](https://www.inaturalist.org/api)** — the *actual* butterflies,
-  birds and native plants observed near you power the living Vision scene and a
-  "🌿 Native here" badge on matching plants.
+  birds and native plants observed near you. Real butterfly **photos flutter
+  across the Vision scene**, and matching plants get a "🌿 Native here" badge.
 
 Results are cached on-device (keyed by coordinate, 30-day freshness). If the
 network is unavailable, the app falls back to a latitude-based zone estimate and

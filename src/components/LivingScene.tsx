@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, Image, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme';
 
 /**
@@ -14,6 +14,8 @@ import { colors } from '../theme';
 
 interface FlyerSpec {
   glyph: string;
+  /** When set, a real butterfly photo is shown instead of the emoji. */
+  photo?: string;
   startLeft: number; // 0-1
   top: number; // px within scene
   size: number;
@@ -88,6 +90,31 @@ function Butterfly({ spec }: { spec: FlyerSpec }) {
     outputRange: [1, 0.6],
   });
 
+  if (spec.photo) {
+    const dim = spec.size * 1.7;
+    return (
+      <Animated.View
+        style={{
+          position: 'absolute',
+          left: `${spec.startLeft * 100}%`,
+          top: spec.top,
+          transform: [{ translateX }, { translateY }, { scaleX }],
+        }}
+      >
+        <Image
+          source={{ uri: spec.photo }}
+          style={{
+            width: dim,
+            height: dim,
+            borderRadius: dim / 2,
+            borderWidth: 1.5,
+            borderColor: 'rgba(255,255,255,0.85)',
+          }}
+        />
+      </Animated.View>
+    );
+  }
+
   return (
     <Animated.Text
       style={{
@@ -159,10 +186,21 @@ function BirdBath() {
   );
 }
 
-export function LivingScene({ height = 320 }: { height?: number }) {
+export function LivingScene({
+  height = 320,
+  butterflyPhotos = [],
+}: {
+  height?: number;
+  /** Real butterfly photo URLs; when present they replace the emoji. */
+  butterflyPhotos?: string[];
+}) {
+  // Overlay real photos onto our flight paths, keeping any extra paths as emoji.
+  const specs = BUTTERFLIES.map((spec, i) =>
+    butterflyPhotos[i] ? { ...spec, photo: butterflyPhotos[i] } : spec
+  );
   return (
     <View pointerEvents="none" style={[StyleSheet.absoluteFill, { height }]}>
-      {BUTTERFLIES.map((spec, i) => (
+      {specs.map((spec, i) => (
         <Butterfly key={i} spec={spec} />
       ))}
       <BirdBath />
