@@ -1,0 +1,319 @@
+import React, { useMemo } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Pressable,
+  Platform,
+} from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import MapView from 'react-native-maps';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { colors, radius, spacing } from '../theme';
+import { useDesignStore, usePlacedPlantIds } from '../store/useDesignStore';
+import {
+  MONTHS_LONG,
+  peakBountyMonth,
+  plantsHarvestingIn,
+  seasonForMonth,
+  SEASON_META,
+} from '../data/season';
+import { zoneLabel } from '../data/climate';
+import { GlisteningLeaves } from '../components/GlisteningLeaves';
+import { LivingScene } from '../components/LivingScene';
+import { useSoundscape } from '../audio/soundscape';
+
+export function VisionScreen() {
+  const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
+  const site = useDesignStore((s) => s.site);
+  const placedIds = usePlacedPlantIds();
+  const sound = useSoundscape();
+
+  const peakMonth = useMemo(() => peakBountyMonth(placedIds), [placedIds]);
+  const fruiting = useMemo(
+    () => plantsHarvestingIn(placedIds, peakMonth),
+    [placedIds, peakMonth]
+  );
+  const season = SEASON_META[seasonForMonth(peakMonth)];
+  const hasLocation = site.latitude != null && site.longitude != null;
+
+  return (
+    <View style={styles.root}>
+      <ScrollView contentContainerStyle={{ paddingBottom: spacing.xl }}>
+        {/* ---- Sunrise hero over the user's location ---- */}
+        <View style={styles.hero}>
+          {hasLocation ? (
+            <MapView
+              style={StyleSheet.absoluteFill}
+              mapType="satellite"
+              pointerEvents="none"
+              scrollEnabled={false}
+              zoomEnabled={false}
+              rotateEnabled={false}
+              pitchEnabled={false}
+              region={{
+                latitude: site.latitude as number,
+                longitude: site.longitude as number,
+                latitudeDelta: 0.004,
+                longitudeDelta: 0.004,
+              }}
+            />
+          ) : null}
+
+          {/* Warm dawn light washing over the scene */}
+          <LinearGradient
+            colors={[
+              'rgba(255,196,120,0.55)',
+              'rgba(255,150,90,0.28)',
+              'rgba(15,26,18,0.15)',
+              'rgba(15,26,18,0.85)',
+            ]}
+            locations={[0, 0.35, 0.7, 1]}
+            style={StyleSheet.absoluteFill}
+          />
+
+          {/* Rising sun glow */}
+          <View style={styles.sun} />
+          <View style={styles.sunCore} />
+
+          {/* Leaves drifting on a light breeze, glistening */}
+          <GlisteningLeaves height={320} />
+
+          {/* Butterflies among the plants and a softly bubbling bird bath */}
+          <LivingScene height={320} />
+
+          <View style={[styles.heroContent, { paddingTop: insets.top + spacing.md }]}>
+            <Text style={styles.dawnTag}>{season.icon}  Dawn · {season.label}</Text>
+            <Text style={styles.heroTitle}>{site.label}</Text>
+            <Text style={styles.heroSub}>
+              {hasLocation
+                ? zoneLabel(site.zone)
+                : 'Set your location to see your land at first light'}
+            </Text>
+
+            <Pressable
+              onPress={() => {
+                if (sound.available) sound.toggle();
+              }}
+              style={styles.soundBtn}
+            >
+              <Text style={styles.soundIcon}>
+                {sound.available ? (sound.playing ? '🔊' : '🐦') : '🔈'}
+              </Text>
+              <Text style={styles.soundText}>
+                {sound.available
+                  ? sound.playing
+                    ? 'Dawn chorus playing'
+                    : 'Play the dawn chorus'
+                  : 'Add a soundscape to hear birdsong & bubbling water'}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+
+        {/* ---- Peak bounty ---- */}
+        <View style={styles.section}>
+          <Text style={styles.kicker}>YOUR MOMENT OF ABUNDANCE</Text>
+          <Text style={styles.bountyTitle}>
+            In {MONTHS_LONG[peakMonth - 1]}, your forest is heavy with fruit
+          </Text>
+
+          {fruiting.length > 0 ? (
+            <>
+              <Text style={styles.bountyBody}>
+                {fruiting.length} planting
+                {fruiting.length === 1 ? '' : 's'} ripening at once — a warm,
+                glistening morning of harvest.
+              </Text>
+              <View style={styles.fruitRow}>
+                {fruiting.slice(0, 12).map((p) => (
+                  <View key={p.id} style={styles.fruitChip}>
+                    <Text style={styles.fruitIcon}>{p.icon}</Text>
+                    <Text style={styles.fruitName}>{p.common}</Text>
+                  </View>
+                ))}
+              </View>
+            </>
+          ) : (
+            <Text style={styles.bountyBody}>
+              Your land is waiting. Add fruit trees, berries and herbs, and
+              we'll show you the glorious morning they'll create together.
+            </Text>
+          )}
+        </View>
+
+        {/* ---- Calls to action ---- */}
+        <View style={styles.section}>
+          <CTA
+            icon="📍"
+            title={hasLocation ? 'Refine your site' : 'Start with your location'}
+            body="See your land from above and find your climate."
+            onPress={() => navigation.navigate('Site')}
+          />
+          <CTA
+            icon="🌱"
+            title="Discover what will thrive"
+            body="Fruit trees, edible & medicinal shrubs, vines and ground covers for your zone."
+            onPress={() => navigation.navigate('Plants')}
+          />
+          <CTA
+            icon="🗺️"
+            title="Design your forest"
+            body="Place plants onto the satellite view of your land."
+            onPress={() => navigation.navigate('Design')}
+          />
+        </View>
+
+        <Text style={styles.footer}>
+          "The best time to plant a tree was 20 years ago. The second best time
+          is now."
+        </Text>
+      </ScrollView>
+    </View>
+  );
+}
+
+function CTA({
+  icon,
+  title,
+  body,
+  onPress,
+}: {
+  icon: string;
+  title: string;
+  body: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.cta, pressed && { opacity: 0.7 }]}
+    >
+      <Text style={styles.ctaIcon}>{icon}</Text>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.ctaTitle}>{title}</Text>
+        <Text style={styles.ctaBody}>{body}</Text>
+      </View>
+      <Text style={styles.ctaChevron}>›</Text>
+    </Pressable>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.bg },
+  hero: {
+    height: 320,
+    backgroundColor: '#243b2b',
+    overflow: 'hidden',
+    justifyContent: 'flex-end',
+  },
+  sun: {
+    position: 'absolute',
+    top: 40,
+    alignSelf: 'center',
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: 'rgba(255,214,150,0.35)',
+  },
+  sunCore: {
+    position: 'absolute',
+    top: 90,
+    alignSelf: 'center',
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: 'rgba(255,236,196,0.85)',
+  },
+  heroContent: { padding: spacing.lg },
+  dawnTag: {
+    color: '#ffe9c7',
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: spacing.xs,
+  },
+  heroTitle: {
+    color: '#fff',
+    fontSize: 30,
+    fontWeight: '800',
+    textShadowColor: 'rgba(0,0,0,0.45)',
+    textShadowRadius: 8,
+  },
+  heroSub: {
+    color: '#f2fff0',
+    fontSize: 15,
+    marginTop: 2,
+    textShadowColor: 'rgba(0,0,0,0.4)',
+    textShadowRadius: 6,
+  },
+  soundBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    marginTop: spacing.md,
+    backgroundColor: 'rgba(15,26,18,0.55)',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.lg,
+  },
+  soundIcon: { fontSize: 18, marginRight: spacing.sm },
+  soundText: { color: '#fff', fontWeight: '600', fontSize: 13 },
+  section: { paddingHorizontal: spacing.lg, paddingTop: spacing.xl },
+  kicker: {
+    color: colors.accent,
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1,
+    marginBottom: spacing.xs,
+  },
+  bountyTitle: {
+    color: colors.text,
+    fontSize: 22,
+    fontWeight: '800',
+    marginBottom: spacing.sm,
+  },
+  bountyBody: { color: colors.textMuted, fontSize: 15, lineHeight: 22 },
+  fruitRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  fruitChip: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: radius.lg,
+    paddingVertical: 6,
+    paddingHorizontal: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  fruitIcon: { fontSize: 18, marginRight: 6 },
+  fruitName: { color: colors.text, fontWeight: '600', fontSize: 13 },
+  cta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  ctaIcon: { fontSize: 26, marginRight: spacing.md },
+  ctaTitle: { color: colors.text, fontSize: 16, fontWeight: '700' },
+  ctaBody: { color: colors.textMuted, fontSize: 13, marginTop: 2 },
+  ctaChevron: { color: colors.textMuted, fontSize: 28, marginLeft: spacing.sm },
+  footer: {
+    color: colors.textMuted,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingHorizontal: spacing.xl,
+    marginTop: spacing.xl,
+    fontSize: 13,
+  },
+});

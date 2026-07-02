@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "Food Forest",
+    "slug": "food-forest",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "foodforest",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.foodforest.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "We use your location to center the satellite map on your land and estimate your growing zone."
+      }
+    },
+    "android": {
+      "package": "com.foodforest.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#0f1a12",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"],
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "We use your location to center the satellite map on your land and estimate your growing zone."
+        }
+      ]
+    ]
+  }
+}
