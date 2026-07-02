@@ -25,7 +25,9 @@ be, then help you get there.**
 - **🗺️ Design** — Place suggested plants onto the satellite view of your land.
   Each planting shows its true-to-scale mature spread. Outline your **property
   boundary** and line the perimeter with area-appropriate screening species for
-  privacy and a sense of enclosure.
+  privacy and a sense of enclosure. Drop in a **chicken coop** with an adjustable
+  flock and a true-to-scale foraging run — closing the loop with eggs, pest
+  control, fertilizer and gentle tilling.
 - **📅 Timeline** — A month-by-month calendar of when to plant, tend and harvest
   everything in your design, with your peak-bounty month highlighted.
 
@@ -72,7 +74,7 @@ Ideally the recording matches the dawn chorus of the user's own region.
 ```
 src/
   audio/        ambient soundscape hook
-  components/   reusable UI (plant cards, animated scene, bird bath, leaves)
+  components/   reusable UI (plant cards, coop marker, hens, leaves, bird bath)
   data/         plant database, climate/zone logic, seasonal + geo helpers
   navigation/   tab + stack navigation
   screens/      Vision, Site, Plants, PlantDetail, Design, Timeline

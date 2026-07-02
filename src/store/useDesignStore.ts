@@ -1,18 +1,20 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { PlacedPlant, SiteInfo, SunNeed } from '../types';
+import { PlacedPlant, PlacedStructure, SiteInfo, StructureType, SunNeed } from '../types';
 import { LatLng } from '../data/geo';
+import { STRUCTURE_META } from '../data/structures';
 
 let instanceCounter = 0;
-function newInstanceId(): string {
+function newInstanceId(prefix = 'pp'): string {
   instanceCounter += 1;
-  return `pp_${Date.now().toString(36)}_${instanceCounter}`;
+  return `${prefix}_${Date.now().toString(36)}_${instanceCounter}`;
 }
 
 interface DesignState {
   site: SiteInfo;
   placed: PlacedPlant[];
+  structures: PlacedStructure[];
   /** Inferred property outline; empty when the user hasn't marked one. */
   boundary: LatLng[];
   hydrated: boolean;
@@ -26,6 +28,11 @@ interface DesignState {
   movePlant: (instanceId: string, latitude: number, longitude: number) => void;
   removePlant: (instanceId: string) => void;
   clearDesign: () => void;
+
+  placeStructure: (type: StructureType, latitude: number, longitude: number) => void;
+  moveStructure: (instanceId: string, latitude: number, longitude: number) => void;
+  setFlockSize: (instanceId: string, flockSize: number) => void;
+  removeStructure: (instanceId: string) => void;
 
   setBoundary: (points: LatLng[]) => void;
   moveBoundaryPoint: (index: number, point: LatLng) => void;
@@ -48,6 +55,7 @@ export const useDesignStore = create<DesignState>()(
     (set) => ({
       site: initialSite,
       placed: [],
+      structures: [],
       boundary: [],
       hydrated: false,
 
@@ -90,7 +98,40 @@ export const useDesignStore = create<DesignState>()(
           placed: s.placed.filter((p) => p.instanceId !== instanceId),
         })),
 
-      clearDesign: () => set(() => ({ placed: [] })),
+      clearDesign: () => set(() => ({ placed: [], structures: [] })),
+
+      placeStructure: (type, latitude, longitude) =>
+        set((s) => ({
+          structures: [
+            ...s.structures,
+            {
+              instanceId: newInstanceId('st'),
+              type,
+              latitude,
+              longitude,
+              flockSize: STRUCTURE_META[type].defaultFlock,
+            },
+          ],
+        })),
+
+      moveStructure: (instanceId, latitude, longitude) =>
+        set((s) => ({
+          structures: s.structures.map((st) =>
+            st.instanceId === instanceId ? { ...st, latitude, longitude } : st
+          ),
+        })),
+
+      setFlockSize: (instanceId, flockSize) =>
+        set((s) => ({
+          structures: s.structures.map((st) =>
+            st.instanceId === instanceId ? { ...st, flockSize } : st
+          ),
+        })),
+
+      removeStructure: (instanceId) =>
+        set((s) => ({
+          structures: s.structures.filter((st) => st.instanceId !== instanceId),
+        })),
 
       setBoundary: (points) => set(() => ({ boundary: points })),
 
@@ -106,7 +147,12 @@ export const useDesignStore = create<DesignState>()(
     {
       name: 'food-forest-design-v1',
       storage: createJSONStorage(() => AsyncStorage),
-      partialize: (s) => ({ site: s.site, placed: s.placed, boundary: s.boundary }),
+      partialize: (s) => ({
+        site: s.site,
+        placed: s.placed,
+        structures: s.structures,
+        boundary: s.boundary,
+      }),
       onRehydrateStorage: () => (state) => {
         state?.setHydrated();
       },

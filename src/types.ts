@@ -57,6 +57,19 @@ export interface PlacedPlant {
   longitude: number;
 }
 
+/** Non-plant elements you can place — animals, water, structures. */
+export type StructureType = 'coop';
+
+/** A structure (e.g. a chicken coop) placed onto the design canvas. */
+export interface PlacedStructure {
+  instanceId: string;
+  type: StructureType;
+  latitude: number;
+  longitude: number;
+  /** Coop: number of birds, used to size the coop and its foraging run. */
+  flockSize: number;
+}
+
 export interface SiteInfo {
   latitude: number | null;
   longitude: number | null;

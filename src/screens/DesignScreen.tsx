@@ -19,6 +19,8 @@ import {
   pointsAlongPerimeter,
   squareBoundary,
 } from '../data/geo';
+import { STRUCTURE_META, runRadiusForFlock } from '../data/structures';
+import { CoopMarker } from '../components/CoopMarker';
 
 export function DesignScreen() {
   const insets = useSafeAreaInsets();
@@ -33,8 +35,14 @@ export function DesignScreen() {
   const setBoundary = useDesignStore((s) => s.setBoundary);
   const moveBoundaryPoint = useDesignStore((s) => s.moveBoundaryPoint);
   const clearBoundary = useDesignStore((s) => s.clearBoundary);
+  const structures = useDesignStore((s) => s.structures);
+  const placeStructure = useDesignStore((s) => s.placeStructure);
+  const moveStructure = useDesignStore((s) => s.moveStructure);
+  const setFlockSize = useDesignStore((s) => s.setFlockSize);
+  const removeStructure = useDesignStore((s) => s.removeStructure);
 
   const [selected, setSelected] = useState<string | null>(null);
+  const [selectedStructure, setSelectedStructure] = useState<string | null>(null);
   const hasLocation = site.latitude != null && site.longitude != null;
 
   // Track the map center so quick-add drops plants where you're looking.
@@ -108,9 +116,19 @@ export function DesignScreen() {
 
   const selectedPlaced = placed.find((p) => p.instanceId === selected);
   const selectedPlant = selectedPlaced ? getPlant(selectedPlaced.plantId) : null;
+  const selectedCoop = structures.find((s) => s.instanceId === selectedStructure);
 
   function quickAdd(plantId: string) {
     placePlant(plantId, centerRef.current.latitude, centerRef.current.longitude);
+  }
+
+  function addCoop() {
+    placeStructure('coop', centerRef.current.latitude, centerRef.current.longitude);
+  }
+
+  function clearSelection() {
+    setSelected(null);
+    setSelectedStructure(null);
   }
 
   if (!hasLocation) {
@@ -135,7 +153,7 @@ export function DesignScreen() {
         style={StyleSheet.absoluteFill}
         mapType="satellite"
         initialRegion={initialRegion}
-        onPress={() => setSelected(null)}
+        onPress={clearSelection}
         onRegionChangeComplete={(r) => {
           centerRef.current = { latitude: r.latitude, longitude: r.longitude };
         }}
@@ -162,6 +180,43 @@ export function DesignScreen() {
           </Marker>
         ))}
 
+        {/* Chicken coops with their foraging run */}
+        {structures.map((st) => {
+          const meta = STRUCTURE_META[st.type];
+          const isSel = st.instanceId === selectedStructure;
+          const runR = runRadiusForFlock(st.flockSize);
+          return (
+            <React.Fragment key={st.instanceId}>
+              <Circle
+                center={{ latitude: st.latitude, longitude: st.longitude }}
+                radius={runR}
+                strokeColor={meta.color}
+                strokeWidth={isSel ? 3 : 1.5}
+                fillColor={`${meta.color}33`}
+              />
+              <Marker
+                coordinate={{ latitude: st.latitude, longitude: st.longitude }}
+                draggable
+                onDragEnd={(e) =>
+                  moveStructure(
+                    st.instanceId,
+                    e.nativeEvent.coordinate.latitude,
+                    e.nativeEvent.coordinate.longitude
+                  )
+                }
+                onPress={() => {
+                  setSelected(null);
+                  setSelectedStructure(st.instanceId);
+                }}
+                anchor={{ x: 0.5, y: 1 }}
+                tracksViewChanges={false}
+              >
+                <CoopMarker size={0.85} selected={isSel} />
+              </Marker>
+            </React.Fragment>
+          );
+        })}
+
         {placed.map((pp) => {
           const plant = getPlant(pp.plantId);
           if (!plant) return null;
@@ -187,7 +242,10 @@ export function DesignScreen() {
                     e.nativeEvent.coordinate.longitude
                   )
                 }
-                onPress={() => setSelected(pp.instanceId)}
+                onPress={() => {
+                  setSelectedStructure(null);
+                  setSelected(pp.instanceId);
+                }}
                 anchor={{ x: 0.5, y: 0.5 }}
                 tracksViewChanges={false}
               >
@@ -205,15 +263,23 @@ export function DesignScreen() {
         <View>
           <Text style={styles.topTitle}>{site.label}</Text>
           <Text style={styles.topSub}>
-            {placed.length} planting{placed.length === 1 ? '' : 's'} · outline your property & hedge the edge for privacy
+            {placed.length} planting{placed.length === 1 ? '' : 's'}
+            {structures.length > 0 ? ` · ${structures.length} coop${structures.length === 1 ? '' : 's'}` : ''} · add plants, a coop 🐔 or hedge your edge
           </Text>
         </View>
-        {placed.length > 0 && (
+        {(placed.length > 0 || structures.length > 0) && (
           <Pressable
             onPress={() =>
-              Alert.alert('Clear design?', 'Remove all plantings from the map.', [
+              Alert.alert('Clear design?', 'Remove all plantings and structures from the map.', [
                 { text: 'Cancel', style: 'cancel' },
-                { text: 'Clear', style: 'destructive', onPress: clearDesign },
+                {
+                  text: 'Clear',
+                  style: 'destructive',
+                  onPress: () => {
+                    clearDesign();
+                    clearSelection();
+                  },
+                },
               ])
             }
           >
@@ -237,6 +303,10 @@ export function DesignScreen() {
         >
           <Text style={styles.ctrlIcon}>🌳</Text>
           <Text style={styles.ctrlText}>Hedge</Text>
+        </Pressable>
+        <Pressable style={styles.ctrlBtn} onPress={addCoop}>
+          <Text style={styles.ctrlIcon}>🐔</Text>
+          <Text style={styles.ctrlText}>Coop</Text>
         </Pressable>
       </View>
 
@@ -265,6 +335,67 @@ export function DesignScreen() {
           >
             <Text style={styles.removeText}>Remove</Text>
           </Pressable>
+        </View>
+      )}
+
+      {/* Selected coop card */}
+      {selectedCoop && (
+        <View style={[styles.coopCard, { bottom: insets.bottom + 96 }]}>
+          <View style={styles.coopHead}>
+            <CoopMarker size={0.8} />
+            <View style={{ flex: 1, marginLeft: spacing.md }}>
+              <Text style={styles.selName}>{STRUCTURE_META.coop.label}</Text>
+              <Text style={styles.selSub}>
+                Foraging run ≈ {(runRadiusForFlock(selectedCoop.flockSize) * 2).toFixed(0)} m across
+              </Text>
+            </View>
+            <Pressable
+              style={styles.removeBtn}
+              onPress={() => {
+                removeStructure(selectedCoop.instanceId);
+                setSelectedStructure(null);
+              }}
+            >
+              <Text style={styles.removeText}>Remove</Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.flockRow}>
+            <Text style={styles.flockLabel}>Flock size</Text>
+            <View style={styles.stepperMini}>
+              <Pressable
+                style={styles.miniBtn}
+                onPress={() =>
+                  setFlockSize(
+                    selectedCoop.instanceId,
+                    Math.max(STRUCTURE_META.coop.minFlock, selectedCoop.flockSize - 1)
+                  )
+                }
+              >
+                <Text style={styles.miniBtnText}>−</Text>
+              </Pressable>
+              <Text style={styles.flockValue}>{selectedCoop.flockSize} 🐔</Text>
+              <Pressable
+                style={styles.miniBtn}
+                onPress={() =>
+                  setFlockSize(
+                    selectedCoop.instanceId,
+                    Math.min(STRUCTURE_META.coop.maxFlock, selectedCoop.flockSize + 1)
+                  )
+                }
+              >
+                <Text style={styles.miniBtnText}>＋</Text>
+              </Pressable>
+            </View>
+          </View>
+
+          <View style={styles.benefitRow}>
+            {STRUCTURE_META.coop.benefits.map((b) => (
+              <Text key={b} style={styles.benefit}>
+                {b}
+              </Text>
+            ))}
+          </View>
         </View>
       )}
 
@@ -380,6 +511,49 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
   },
   removeText: { color: colors.danger, fontWeight: '700' },
+  coopCard: {
+    position: 'absolute',
+    left: spacing.lg,
+    right: spacing.lg,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
+  },
+  coopHead: { flexDirection: 'row', alignItems: 'center' },
+  flockRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.md,
+  },
+  flockLabel: { color: colors.textMuted, fontSize: 14, fontWeight: '600' },
+  stepperMini: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  miniBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.sm,
+    backgroundColor: colors.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  miniBtnText: { color: colors.text, fontSize: 22, fontWeight: '700' },
+  flockValue: { color: colors.text, fontSize: 16, fontWeight: '700', minWidth: 56, textAlign: 'center' },
+  benefitRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  benefit: {
+    color: colors.text,
+    fontSize: 12,
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: radius.sm,
+    paddingVertical: 4,
+    paddingHorizontal: spacing.sm,
+  },
   tray: {
     position: 'absolute',
     left: 0,

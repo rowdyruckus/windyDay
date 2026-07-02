@@ -23,6 +23,7 @@ import {
 import { zoneLabel } from '../data/climate';
 import { GlisteningLeaves } from '../components/GlisteningLeaves';
 import { LivingScene } from '../components/LivingScene';
+import { Hens } from '../components/Hens';
 import { useSoundscape } from '../audio/soundscape';
 
 export function VisionScreen() {
@@ -84,6 +85,9 @@ export function VisionScreen() {
 
           {/* Butterflies among the plants and a softly bubbling bird bath */}
           <LivingScene height={320} />
+
+          {/* Hens pecking and wandering along the ground */}
+          <Hens height={320} />
 
           <View style={[styles.heroContent, { paddingTop: insets.top + spacing.md }]}>
             <Text style={styles.dawnTag}>
