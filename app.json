@@ -1,21 +1,21 @@
 {
   "expo": {
-    "name": "Food Forest",
-    "slug": "food-forest",
+    "name": "Let's Plant Paradise",
+    "slug": "lets-plant-paradise",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "scheme": "foodforest",
+    "scheme": "letsplantparadise",
     "userInterfaceStyle": "dark",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.foodforest.app",
+      "bundleIdentifier": "com.letsplantparadise.app",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "We use your location to center the satellite map on your land and estimate your growing zone."
       }
     },
     "android": {
-      "package": "com.foodforest.app",
+      "package": "com.letsplantparadise.app",
       "adaptiveIcon": {
         "backgroundColor": "#0f1a12",
         "foregroundImage": "./assets/android-icon-foreground.png",

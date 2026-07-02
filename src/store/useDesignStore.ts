@@ -40,7 +40,7 @@ const initialSite: SiteInfo = {
   zone: null,
   zoneSource: null,
   sun: 'full',
-  label: 'My Food Forest',
+  label: 'My Paradise',
 };
 
 export const useDesignStore = create<DesignState>()(

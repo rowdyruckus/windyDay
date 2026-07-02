@@ -86,7 +86,9 @@ export function VisionScreen() {
           <LivingScene height={320} />
 
           <View style={[styles.heroContent, { paddingTop: insets.top + spacing.md }]}>
-            <Text style={styles.dawnTag}>{season.icon}  Dawn · {season.label}</Text>
+            <Text style={styles.dawnTag}>
+              {season.icon}  Let's Plant Paradise · Dawn · {season.label}
+            </Text>
             <Text style={styles.heroTitle}>{site.label}</Text>
             <Text style={styles.heroSub}>
               {hasLocation

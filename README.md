@@ -1,4 +1,4 @@
-# 🌄 Food Forest
+# 🌄 Let's Plant Paradise
 
 An iPhone app for designing your own food forest — a permaculture garden layered
 from canopy fruit trees down to ground covers and roots.

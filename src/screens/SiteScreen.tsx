@@ -133,7 +133,7 @@ export function SiteScreen() {
           style={styles.input}
           value={site.label}
           onChangeText={setLabel}
-          placeholder="My Food Forest"
+          placeholder="My Paradise"
           placeholderTextColor={colors.textMuted}
         />
       </Card>
