@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { useShallow } from 'zustand/react/shallow';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PlacedPlant, PlacedStructure, SiteInfo, StructureType, SunNeed } from '../types';
 import { LatLng } from '../data/geo';
@@ -207,7 +208,15 @@ export const useDesignStore = create<DesignState>()(
   )
 );
 
-/** Convenience selector: unique plant ids currently in the design. */
+/**
+ * Convenience selector: unique plant ids currently in the design.
+ *
+ * The selector derives a fresh array, so it is wrapped in `useShallow` to
+ * compare by contents — otherwise a new array reference on every render trips
+ * React's useSyncExternalStore infinite-loop guard.
+ */
 export function usePlacedPlantIds(): string[] {
-  return useDesignStore((s) => Array.from(new Set(s.placed.map((p) => p.plantId))));
+  return useDesignStore(
+    useShallow((s) => Array.from(new Set(s.placed.map((p) => p.plantId))))
+  );
 }
