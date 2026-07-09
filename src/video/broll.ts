@@ -31,4 +31,7 @@ import type { VideoSource } from 'expo-video';
  *
  * Leave this empty to keep the animated orchard backdrop.
  */
-export const BROLL_SOURCES: VideoSource[] = [];
+export const BROLL_SOURCES: VideoSource[] = [
+  require('../../assets/video/broll1.mp4'),
+  require('../../assets/video/broll2.mp4'),
+];
