@@ -24,6 +24,9 @@ be, then help you get there.**
   vines, herbs and ground covers, filtered to what will actually thrive on your
   site. Each plant shows its forest layer, uses, seasonal calendar and **guild
   companions**.
+- **✨ Design my paradise** — one tap fills your property boundary with a
+  balanced, correctly-spaced food forest: a canopy grid, a companion guild under
+  every tree, and understory/shrubs between — all tuned to your zone and sun.
 - **🗺️ Design** — Place suggested plants onto the satellite view of your land.
   Each planting shows its true-to-scale mature spread. Outline your **property
   boundary** and line the perimeter with area-appropriate screening species for
@@ -86,6 +89,14 @@ npx expo start        # then press "i" for the iOS simulator, or scan the QR in 
 
 The satellite map and location features use native modules; use the iOS
 simulator or a development build for the full experience.
+
+### Using real video b-roll on the hero
+
+The Vision hero shows an animated orchard backdrop (three scenes cross-fading
+every 3s). To use real fruit-tree footage instead, drop up to three short clips
+into `assets/video/` and list them in `src/video/broll.ts` — the hero will cycle
+them automatically. Free, no-attribution sources: Mixkit, Coverr, Pexels. Clips
+can be any length (only ~3s of each is shown).
 
 ### Enabling the dawn soundscape
 

@@ -36,8 +36,12 @@ interface DesignState {
   setLabel: (label: string) => void;
 
   placePlant: (plantId: string, latitude: number, longitude: number) => void;
+  placePlants: (
+    items: { plantId: string; latitude: number; longitude: number }[]
+  ) => void;
   movePlant: (instanceId: string, latitude: number, longitude: number) => void;
   removePlant: (instanceId: string) => void;
+  clearPlants: () => void;
   clearDesign: () => void;
 
   placeStructure: (type: StructureType, latitude: number, longitude: number) => void;
@@ -105,6 +109,19 @@ export const useDesignStore = create<DesignState>()(
           ],
         })),
 
+      placePlants: (items) =>
+        set((s) => ({
+          placed: [
+            ...s.placed,
+            ...items.map((it) => ({
+              instanceId: newInstanceId(),
+              plantId: it.plantId,
+              latitude: it.latitude,
+              longitude: it.longitude,
+            })),
+          ],
+        })),
+
       movePlant: (instanceId, latitude, longitude) =>
         set((s) => ({
           placed: s.placed.map((p) =>
@@ -116,6 +133,8 @@ export const useDesignStore = create<DesignState>()(
         set((s) => ({
           placed: s.placed.filter((p) => p.instanceId !== instanceId),
         })),
+
+      clearPlants: () => set(() => ({ placed: [] })),
 
       clearDesign: () => set(() => ({ placed: [], structures: [] })),
 

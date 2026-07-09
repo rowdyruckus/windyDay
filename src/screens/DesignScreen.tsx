@@ -19,6 +19,7 @@ import {
   pointsAlongPerimeter,
   squareBoundary,
 } from '../data/geo';
+import { autoDesign } from '../data/autodesign';
 import { STRUCTURE_META, structureRadiusM } from '../data/structures';
 import { StructureMarker } from '../components/StructureMarker';
 import { StructureType } from '../types';
@@ -31,6 +32,8 @@ export function DesignScreen() {
   const movePlant = useDesignStore((s) => s.movePlant);
   const removePlant = useDesignStore((s) => s.removePlant);
   const placePlant = useDesignStore((s) => s.placePlant);
+  const placePlants = useDesignStore((s) => s.placePlants);
+  const clearPlants = useDesignStore((s) => s.clearPlants);
   const clearDesign = useDesignStore((s) => s.clearDesign);
   const boundary = useDesignStore((s) => s.boundary);
   const setBoundary = useDesignStore((s) => s.setBoundary);
@@ -121,6 +124,41 @@ export function DesignScreen() {
 
   function quickAdd(plantId: string) {
     placePlant(plantId, centerRef.current.latitude, centerRef.current.longitude);
+  }
+
+  function autoBuild() {
+    const c = centerRef.current;
+    const poly = boundary.length >= 3 ? boundary : squareBoundary(c, 36);
+    const points = autoDesign(poly, site);
+    if (points.length === 0) {
+      Alert.alert(
+        'Set your site first',
+        'Add your zone and sun on the Site tab so we can choose plants that will thrive here.'
+      );
+      return;
+    }
+    const apply = () => {
+      if (boundary.length < 3) setBoundary(poly);
+      clearPlants();
+      placePlants(points);
+      setSelected(null);
+      Alert.alert(
+        '🌱 Paradise designed',
+        `${points.length} plants placed as balanced guilds. Drag anything to fine-tune, or add a coop, hive or pond.`
+      );
+    };
+    if (placed.length > 0) {
+      Alert.alert(
+        'Design my paradise',
+        `Replace your ${placed.length} current plantings with an auto-designed forest of ${points.length}?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Replace', style: 'destructive', onPress: apply },
+        ]
+      );
+    } else {
+      apply();
+    }
   }
 
   function build() {
@@ -301,6 +339,10 @@ export function DesignScreen() {
 
       {/* Boundary / privacy controls */}
       <View style={[styles.controls, { top: insets.top + 64 }]}>
+        <Pressable style={[styles.ctrlBtn, styles.ctrlBtnPrimary]} onPress={autoBuild}>
+          <Text style={styles.ctrlIcon}>✨</Text>
+          <Text style={[styles.ctrlText, { color: '#0f1a12' }]}>Auto</Text>
+        </Pressable>
         <Pressable
           style={[styles.ctrlBtn, boundary.length > 0 && styles.ctrlBtnActive]}
           onPress={toggleBoundary}
@@ -531,6 +573,7 @@ const styles = StyleSheet.create({
     width: 72,
   },
   ctrlBtnActive: { borderColor: colors.accent },
+  ctrlBtnPrimary: { backgroundColor: colors.primary, borderColor: colors.primary },
   ctrlBtnDisabled: { opacity: 0.45 },
   ctrlIcon: { fontSize: 20 },
   ctrlText: { color: '#fff', fontSize: 11, fontWeight: '700', marginTop: 2 },

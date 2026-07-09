@@ -8,7 +8,6 @@ import {
   Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import MapView from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { colors, radius, spacing } from '../theme';
@@ -25,6 +24,9 @@ import { zoneLabel } from '../data/climate';
 import { GlisteningLeaves } from '../components/GlisteningLeaves';
 import { LivingScene } from '../components/LivingScene';
 import { Hens } from '../components/Hens';
+import { OrchardCycler } from '../components/OrchardCycler';
+import { VideoBackground } from '../components/VideoBackground';
+import { BROLL_SOURCES } from '../video/broll';
 import { useSoundscape } from '../audio/soundscape';
 
 export function VisionScreen() {
@@ -54,25 +56,13 @@ export function VisionScreen() {
   return (
     <View style={styles.root}>
       <ScrollView contentContainerStyle={{ paddingBottom: spacing.xl }}>
-        {/* ---- Sunrise hero over the user's location ---- */}
+        {/* ---- Sunrise hero: cycling orchard b-roll ---- */}
         <View style={styles.hero}>
-          {hasLocation ? (
-            <MapView
-              style={StyleSheet.absoluteFill}
-              mapType="satellite"
-              pointerEvents="none"
-              scrollEnabled={false}
-              zoomEnabled={false}
-              rotateEnabled={false}
-              pitchEnabled={false}
-              region={{
-                latitude: site.latitude as number,
-                longitude: site.longitude as number,
-                latitudeDelta: 0.004,
-                longitudeDelta: 0.004,
-              }}
-            />
-          ) : null}
+          {BROLL_SOURCES.length > 0 ? (
+            <VideoBackground sources={BROLL_SOURCES} style={StyleSheet.absoluteFill} />
+          ) : (
+            <OrchardCycler height={320} />
+          )}
 
           {/* Warm dawn light washing over the scene */}
           <LinearGradient
@@ -114,7 +104,7 @@ export function VisionScreen() {
             <Text style={styles.heroSub}>
               {hasLocation
                 ? zoneLabel(site.zone)
-                : 'Set your location to see your land at first light'}
+                : 'Set your location to grow your paradise'}
             </Text>
 
             <Pressable
