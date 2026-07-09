@@ -1,11 +1,7 @@
 import { Plant, SiteInfo } from '../types';
 import { PLANTS, getPlant } from './plants';
 import { suitability } from './climate';
-import {
-  LatLng,
-  metersToLatDelta,
-  metersToLngDelta,
-} from './geo';
+import { LatLng, isScreeningPlant } from './geo';
 
 export interface AutoPlacement {
   plantId: string;
@@ -13,31 +9,91 @@ export interface AutoPlacement {
   longitude: number;
 }
 
-/** Ray-casting point-in-polygon on lat/lng. */
-function pointInPolygon(lat: number, lng: number, poly: LatLng[]): boolean {
+// --- Local ENU (metres) plane so all geometry is done in metres -------------
+
+interface XY {
+  x: number;
+  y: number;
+}
+
+const M_PER_DEG = 111_320;
+
+function makeProjection(ref: LatLng) {
+  const cosLat = Math.cos((ref.latitude * Math.PI) / 180) || 1e-6;
+  return {
+    toXY: (p: LatLng): XY => ({
+      x: (p.longitude - ref.longitude) * M_PER_DEG * cosLat,
+      y: (p.latitude - ref.latitude) * M_PER_DEG,
+    }),
+    toLatLng: (p: XY): LatLng => ({
+      latitude: ref.latitude + p.y / M_PER_DEG,
+      longitude: ref.longitude + p.x / (M_PER_DEG * cosLat),
+    }),
+  };
+}
+
+function centroid(poly: LatLng[]): LatLng {
+  const lat = poly.reduce((a, p) => a + p.latitude, 0) / poly.length;
+  const lng = poly.reduce((a, p) => a + p.longitude, 0) / poly.length;
+  return { latitude: lat, longitude: lng };
+}
+
+function pointInPolygonXY(x: number, y: number, poly: XY[]): boolean {
   let inside = false;
   for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const xi = poly[i].longitude;
-    const yi = poly[i].latitude;
-    const xj = poly[j].longitude;
-    const yj = poly[j].latitude;
-    const intersect =
-      yi > lat !== yj > lat &&
-      lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi;
+    const xi = poly[i].x;
+    const yi = poly[i].y;
+    const xj = poly[j].x;
+    const yj = poly[j].y;
+    const intersect = yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
     if (intersect) inside = !inside;
   }
   return inside;
 }
 
-function suited(layer: Plant['layer'], site: SiteInfo): Plant[] {
-  return PLANTS.filter((p) => p.layer === layer && suitability(p, site).ok);
+function distToSegment(p: XY, a: XY, b: XY): number {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len2 = dx * dx + dy * dy;
+  let t = len2 === 0 ? 0 : ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2;
+  t = Math.max(0, Math.min(1, t));
+  const cx = a.x + t * dx;
+  const cy = a.y + t * dy;
+  return Math.hypot(p.x - cx, p.y - cy);
 }
 
-/**
- * Build a small guild around a canopy tree: prefer its own listed companions
- * (filtered to what suits the site), then top up with reliable support plants
- * so every tree gets a diverse understory.
- */
+function distToEdge(p: XY, poly: XY[]): number {
+  let min = Infinity;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    min = Math.min(min, distToSegment(p, poly[j], poly[i]));
+  }
+  return min;
+}
+
+// --- Species selection ------------------------------------------------------
+
+function suitedOrAll(layer: Plant['layer'], site: SiteInfo): Plant[] {
+  const all = PLANTS.filter((p) => p.layer === layer);
+  const ok = all.filter((p) => suitability(p, site).ok);
+  return ok.length > 0 ? ok : all;
+}
+
+/** Tall, dense species for a privacy/windbreak hedge, tallest first. */
+function screeningTrees(site: SiteInfo): Plant[] {
+  const pool = PLANTS.filter(
+    (p) => (p.layer === 'canopy' || p.layer === 'understory') && isScreeningPlant(p)
+  );
+  const ok = pool.filter((p) => suitability(p, site).ok);
+  const chosen = ok.length > 0 ? ok : pool;
+  return [...chosen].sort((a, b) => b.matureHeightM - a.matureHeightM);
+}
+
+function screeningShrubs(site: SiteInfo): Plant[] {
+  const pool = PLANTS.filter((p) => p.layer === 'shrub' && p.matureHeightM >= 1.2);
+  const ok = pool.filter((p) => suitability(p, site).ok);
+  return ok.length > 0 ? ok : pool;
+}
+
 function guildFor(canopy: Plant, site: SiteInfo): string[] {
   const picks: string[] = [];
   const add = (id?: string) => {
@@ -47,7 +103,6 @@ function guildFor(canopy: Plant, site: SiteInfo): string[] {
     const p = getPlant(id);
     if (p && suitability(p, site).ok) add(id);
   }
-  // Fallback support species (dynamic accumulator, N-fixer, alliums, nectary).
   for (const id of ['comfrey', 'clover', 'chives', 'yarrow', 'strawberry']) {
     const p = getPlant(id);
     if (p && suitability(p, site).ok) add(id);
@@ -55,86 +110,119 @@ function guildFor(canopy: Plant, site: SiteInfo): string[] {
   return picks;
 }
 
-const MAX_CANOPY = 30; // keep the map responsive
+const INTERIOR_INSET_M = 3.5; // keep the interior forest clear of the hedge
+const WINDBREAK_INSET_M = 1.5; // how far inside the boundary the hedge sits
+const WINDBREAK_SPACING_M = 2.5; // dense enough to screen
+const MAX_CANOPY = 30;
+const MAX_WINDBREAK = 160;
 
 /**
- * Auto-design a food forest inside `boundary`: a canopy grid spaced by mature
- * spread, a guild ring under each tree, and understory/shrubs on the offset
- * grid. Everything is filtered to the site's zone & sun.
+ * Auto-design a food forest inside `boundary`:
+ *  1) a perimeter windbreak/privacy hedge just inside the property edge,
+ *     alternating tall screening trees with bushes;
+ *  2) an interior canopy grid (inset from the hedge) with a companion guild
+ *     under each tree and understory/shrubs between.
+ * Everything is filtered to the site's zone & sun, with best-effort fallbacks
+ * so it always produces a design.
  */
 export function autoDesign(boundary: LatLng[], site: SiteInfo): AutoPlacement[] {
   if (boundary.length < 3) return [];
 
-  const canopy = suited('canopy', site);
-  const understory = suited('understory', site);
-  const shrub = suited('shrub', site);
-  const anchors = canopy.length > 0 ? canopy : understory;
-  if (anchors.length === 0) return [];
+  const ref = centroid(boundary);
+  const { toXY, toLatLng } = makeProjection(ref);
+  const polyXY = boundary.map(toXY);
+  const out: AutoPlacement[] = [];
+  const push = (plantId: string, p: XY) => {
+    const ll = toLatLng(p);
+    out.push({ plantId, latitude: ll.latitude, longitude: ll.longitude });
+  };
 
-  // Spacing from the widest anchor's mature spread, with a comfortable buffer.
+  // ---- 1) Perimeter windbreak / privacy hedge -----------------------------
+  const wbTrees = screeningTrees(site);
+  const wbShrubs = screeningShrubs(site);
+  if (wbTrees.length > 0) {
+    let placed = 0;
+    let alt = 0;
+    for (let e = 0; e < polyXY.length && placed < MAX_WINDBREAK; e++) {
+      const a = polyXY[e];
+      const b = polyXY[(e + 1) % polyXY.length];
+      const edgeLen = Math.hypot(b.x - a.x, b.y - a.y);
+      const steps = Math.max(1, Math.round(edgeLen / WINDBREAK_SPACING_M));
+      for (let s = 0; s < steps && placed < MAX_WINDBREAK; s++) {
+        const t = s / steps;
+        const on: XY = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+        // Inset toward the centroid (origin in this plane).
+        const mag = Math.hypot(on.x, on.y) || 1;
+        const k = Math.max(0, (mag - WINDBREAK_INSET_M) / mag);
+        const inset: XY = { x: on.x * k, y: on.y * k };
+        // Alternate a tall tree and a bush for a layered screen.
+        const useShrub = alt % 2 === 1 && wbShrubs.length > 0;
+        const species = useShrub
+          ? wbShrubs[Math.floor(alt / 2) % wbShrubs.length]
+          : wbTrees[Math.floor(alt / 2) % wbTrees.length];
+        push(species.id, inset);
+        alt += 1;
+        placed += 1;
+      }
+    }
+  }
+
+  // ---- 2) Interior food forest (inset from the hedge) ---------------------
+  const anchors = suitedOrAll('canopy', site);
+  const understory = suitedOrAll('understory', site);
+  const shrub = suitedOrAll('shrub', site);
+
+  // Bounding box in metres.
+  const xs = polyXY.map((p) => p.x);
+  const ys = polyXY.map((p) => p.y);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+
   const maxSpread = Math.max(...anchors.map((p) => p.matureSpreadM));
   let spacing = Math.max(4, maxSpread + 1.5);
 
-  // Bounding box of the boundary.
-  const lats = boundary.map((p) => p.latitude);
-  const lngs = boundary.map((p) => p.longitude);
-  const minLat = Math.min(...lats);
-  const maxLat = Math.max(...lats);
-  const minLng = Math.min(...lngs);
-  const maxLng = Math.max(...lngs);
-  const midLat = (minLat + maxLat) / 2;
-
-  // Grow spacing until the canopy count is reasonable for performance.
-  function canopyNodes(step: number): LatLng[] {
-    const dLat = metersToLatDelta(step);
-    const dLng = metersToLngDelta(step, midLat);
-    const nodes: LatLng[] = [];
-    for (let lat = minLat + dLat / 2; lat < maxLat; lat += dLat) {
-      for (let lng = minLng + dLng / 2; lng < maxLng; lng += dLng) {
-        if (pointInPolygon(lat, lng, boundary)) nodes.push({ latitude: lat, longitude: lng });
+  const canopyNodes = (step: number): XY[] => {
+    const nodes: XY[] = [];
+    for (let x = minX + step / 2; x < maxX; x += step) {
+      for (let y = minY + step / 2; y < maxY; y += step) {
+        const p = { x, y };
+        if (pointInPolygonXY(x, y, polyXY) && distToEdge(p, polyXY) > INTERIOR_INSET_M) {
+          nodes.push(p);
+        }
       }
     }
     return nodes;
-  }
+  };
   let nodes = canopyNodes(spacing);
   while (nodes.length > MAX_CANOPY) {
     spacing *= 1.25;
     nodes = canopyNodes(spacing);
   }
 
-  const out: AutoPlacement[] = [];
-  const dLat = metersToLatDelta(spacing);
-  const dLng = metersToLngDelta(spacing, midLat);
-
-  // 1) Canopy trees + a guild ring beneath each.
+  // Canopy + guild ring under each tree.
   nodes.forEach((node, i) => {
     const tree = anchors[i % anchors.length];
-    out.push({ plantId: tree.id, latitude: node.latitude, longitude: node.longitude });
-
+    push(tree.id, node);
     const guild = guildFor(tree, site);
     const ringM = Math.max(1.2, tree.matureSpreadM * 0.4);
-    const rLat = metersToLatDelta(ringM);
-    const rLng = metersToLngDelta(ringM, midLat);
     guild.forEach((pid, k) => {
       const angle = (k / Math.max(1, guild.length)) * Math.PI * 2 + i;
-      out.push({
-        plantId: pid,
-        latitude: node.latitude + rLat * Math.sin(angle),
-        longitude: node.longitude + rLng * Math.cos(angle),
-      });
+      push(pid, { x: node.x + ringM * Math.cos(angle), y: node.y + ringM * Math.sin(angle) });
     });
   });
 
-  // 2) Understory / shrubs on the offset grid (between the canopy trees).
+  // Understory / shrubs on the offset grid, still inset from the hedge.
   const fillers = [...understory, ...shrub];
   if (fillers.length > 0) {
     let f = 0;
-    for (let lat = minLat + dLat; lat < maxLat; lat += dLat) {
-      for (let lng = minLng + dLng; lng < maxLng; lng += dLng) {
-        if (pointInPolygon(lat, lng, boundary)) {
-          const plant = fillers[f % fillers.length];
+    for (let x = minX + spacing; x < maxX; x += spacing) {
+      for (let y = minY + spacing; y < maxY; y += spacing) {
+        const p = { x, y };
+        if (pointInPolygonXY(x, y, polyXY) && distToEdge(p, polyXY) > INTERIOR_INSET_M) {
+          push(fillers[f % fillers.length].id, p);
           f += 1;
-          out.push({ plantId: plant.id, latitude: lat, longitude: lng });
         }
       }
     }

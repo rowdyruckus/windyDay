@@ -20,6 +20,7 @@ import {
   squareBoundary,
 } from '../data/geo';
 import { autoDesign } from '../data/autodesign';
+import { estimateZoneFromLatitude } from '../data/climate';
 import { STRUCTURE_META, structureRadiusM } from '../data/structures';
 import { StructureMarker } from '../components/StructureMarker';
 import { StructureType } from '../types';
@@ -39,6 +40,7 @@ export function DesignScreen() {
   const setBoundary = useDesignStore((s) => s.setBoundary);
   const moveBoundaryPoint = useDesignStore((s) => s.moveBoundaryPoint);
   const clearBoundary = useDesignStore((s) => s.clearBoundary);
+  const region = useDesignStore((s) => s.region);
   const structures = useDesignStore((s) => s.structures);
   const placeStructure = useDesignStore((s) => s.placeStructure);
   const moveStructure = useDesignStore((s) => s.moveStructure);
@@ -129,14 +131,18 @@ export function DesignScreen() {
   function autoBuild() {
     const c = centerRef.current;
     const poly = boundary.length >= 3 ? boundary : squareBoundary(c, 36);
-    const points = autoDesign(poly, site);
-    if (points.length === 0) {
-      Alert.alert(
-        'Set your site first',
-        'Add your zone and sun on the Site tab so we can choose plants that will thrive here.'
-      );
-      return;
-    }
+
+    // Never block: assume a hardiness zone from region data, then a latitude
+    // estimate, then a sensible default. Sun already defaults to full sun.
+    const guessedZone =
+      site.zone ??
+      region?.zone ??
+      (site.latitude != null ? estimateZoneFromLatitude(site.latitude) : 7);
+    const effectiveSite = { ...site, zone: guessedZone };
+
+    const points = autoDesign(poly, effectiveSite);
+    if (points.length === 0) return;
+
     const apply = () => {
       if (boundary.length < 3) setBoundary(poly);
       clearPlants();
@@ -144,13 +150,13 @@ export function DesignScreen() {
       setSelected(null);
       Alert.alert(
         '🌱 Paradise designed',
-        `${points.length} plants placed as balanced guilds. Drag anything to fine-tune, or add a coop, hive or pond.`
+        `${points.length} plants placed — a privacy & windbreak hedge around the edge, and balanced guilds inside. Drag anything to fine-tune.`
       );
     };
     if (placed.length > 0) {
       Alert.alert(
         'Design my paradise',
-        `Replace your ${placed.length} current plantings with an auto-designed forest of ${points.length}?`,
+        `Replace your ${placed.length} current plantings with an auto-designed forest of ${points.length} (windbreak hedge + interior guilds)?`,
         [
           { text: 'Cancel', style: 'cancel' },
           { text: 'Replace', style: 'destructive', onPress: apply },
