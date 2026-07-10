@@ -20,7 +20,7 @@ import { createAudioPlayer, setAudioModeAsync, AudioPlayer } from 'expo-audio';
  *
  * Leave this null to keep the app silent on launch.
  */
-export const MUSIC_SOURCE: number | { uri: string } | null = null;
+export const MUSIC_SOURCE: number | { uri: string } | null = require('../../assets/audio/startup.mp3');
 
 export const MUSIC_AVAILABLE = MUSIC_SOURCE != null;
 
