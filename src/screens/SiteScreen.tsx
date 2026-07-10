@@ -32,6 +32,7 @@ export function SiteScreen() {
   const setZone = useDesignStore((s) => s.setZone);
   const setSun = useDesignStore((s) => s.setSun);
   const setLabel = useDesignStore((s) => s.setLabel);
+  const clearSite = useDesignStore((s) => s.clearSite);
   const resolveRegion = useDesignStore((s) => s.resolveRegion);
   const regionInfo = useDesignStore((s) => s.region);
   const regionStatus = useDesignStore((s) => s.regionStatus);
@@ -140,6 +141,24 @@ export function SiteScreen() {
           </Text>
         )}
       </Pressable>
+
+      {hasLocation && (
+        <Pressable
+          style={styles.resetBtn}
+          onPress={() =>
+            Alert.alert(
+              'Reset my land?',
+              'Clears your saved location so the example garden shows again. Your plantings stay in your design.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Reset', style: 'destructive', onPress: clearSite },
+              ]
+            )
+          }
+        >
+          <Text style={styles.resetText}>↺ Reset my land (show example garden)</Text>
+        </Pressable>
+      )}
 
       {hasLocation && (
         <Card style={{ marginTop: spacing.lg }}>
@@ -327,6 +346,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   locateText: { color: '#0f1a12', fontWeight: '800', fontSize: 15 },
+  resetBtn: { paddingVertical: spacing.md, alignItems: 'center' },
+  resetText: { color: colors.textMuted, fontSize: 13, fontWeight: '600' },
   input: {
     backgroundColor: colors.surfaceAlt,
     borderRadius: radius.sm,

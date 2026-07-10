@@ -64,6 +64,9 @@ interface DesignState {
 
   setBasemap: (basemap: Basemap) => void;
 
+  /** Clear the saved site & region so the example garden shows again. */
+  clearSite: () => void;
+
   setHydrated: () => void;
 }
 
@@ -215,6 +218,9 @@ export const useDesignStore = create<DesignState>()(
       },
 
       setBasemap: (basemap) => set(() => ({ basemap })),
+
+      clearSite: () =>
+        set(() => ({ site: initialSite, region: null, regionStatus: 'idle' })),
 
       setHydrated: () => set(() => ({ hydrated: true })),
     }),
