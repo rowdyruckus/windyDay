@@ -10,6 +10,7 @@ import {
   resolveRegionProfile,
   isProfileFresh,
 } from '../data/region';
+import { STARTUP_SITE } from '../data/demo';
 
 export type RegionStatus = 'idle' | 'loading' | 'ready' | 'error';
 export type Basemap = 'apple' | 'esri';
@@ -67,6 +68,9 @@ interface DesignState {
   /** Clear the saved site & region so the example garden shows again. */
   clearSite: () => void;
 
+  /** Force the startup showcase location (overrides any saved site). */
+  startAtStartup: () => void;
+
   setHydrated: () => void;
 }
 
@@ -79,10 +83,20 @@ const initialSite: SiteInfo = {
   label: 'My Paradise',
 };
 
+// The showcase location the app opens on every launch.
+const startupSite: SiteInfo = {
+  latitude: STARTUP_SITE.latitude,
+  longitude: STARTUP_SITE.longitude,
+  zone: STARTUP_SITE.zone,
+  zoneSource: 'auto',
+  sun: 'full',
+  label: STARTUP_SITE.label,
+};
+
 export const useDesignStore = create<DesignState>()(
   persist(
     (set, get) => ({
-      site: initialSite,
+      site: startupSite,
       placed: [],
       structures: [],
       boundary: [],
@@ -222,6 +236,9 @@ export const useDesignStore = create<DesignState>()(
       clearSite: () =>
         set(() => ({ site: initialSite, region: null, regionStatus: 'idle' })),
 
+      startAtStartup: () =>
+        set(() => ({ site: startupSite, region: null, regionStatus: 'idle' })),
+
       setHydrated: () => set(() => ({ hydrated: true })),
     }),
     {
@@ -237,6 +254,8 @@ export const useDesignStore = create<DesignState>()(
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHydrated();
+        // Always start centered on the showcase location, whatever was saved.
+        state?.startAtStartup();
       },
     }
   )

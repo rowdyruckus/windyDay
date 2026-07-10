@@ -17,3 +17,15 @@ export const DEMO_SITE: LatLng & {
   zone: 8,
   blurb: 'The largest public food forest in the U.S. — explore it, then design your own.',
 };
+
+/**
+ * Startup showcase location — Yosemite Valley. The app centers both the Site
+ * and Design maps here on every launch, regardless of any previously saved
+ * location.
+ */
+export const STARTUP_SITE: LatLng & { label: string; zone: number } = {
+  latitude: 37.7456,
+  longitude: -119.5936,
+  label: 'Yosemite National Park',
+  zone: 7,
+};
