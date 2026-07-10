@@ -18,9 +18,21 @@ import {
   isScreeningPlant,
   pointsAlongPerimeter,
   squareBoundary,
+  metersToLatDelta,
+  metersToLngDelta,
 } from '../data/geo';
 import { autoDesign } from '../data/autodesign';
 import { estimateZoneFromLatitude } from '../data/climate';
+import {
+  dayOfYear,
+  solarPosition,
+  shadowOffsetMeters,
+  computeMicroclimate,
+  MICRO_META,
+  SUN_QUOTE,
+  ShadeTree,
+} from '../data/sun';
+import { TimeSlider } from '../components/TimeSlider';
 import { STRUCTURE_META, structureRadiusM } from '../data/structures';
 import { StructureMarker } from '../components/StructureMarker';
 import { StructureType } from '../types';
@@ -50,7 +62,19 @@ export function DesignScreen() {
 
   const [selected, setSelected] = useState<string | null>(null);
   const [selectedStructure, setSelectedStructure] = useState<string | null>(null);
+  const [sunMode, setSunMode] = useState(false);
+  const [sunHour, setSunHour] = useState(13);
+  const [playing, setPlaying] = useState(false);
   const hasLocation = site.latitude != null && site.longitude != null;
+
+  // Sweep the sun across the day when playing.
+  React.useEffect(() => {
+    if (!playing) return;
+    const id = setInterval(() => {
+      setSunHour((h) => (h >= 19 ? 6 : Math.round((h + 0.5) * 10) / 10));
+    }, 350);
+    return () => clearInterval(id);
+  }, [playing]);
 
   // Track the map center so quick-add drops plants where you're looking.
   const centerRef = useRef({
@@ -79,6 +103,109 @@ export function DesignScreen() {
         .sort((a, b) => b.matureHeightM - a.matureHeightM),
     [suited]
   );
+
+  // ---- Sun & shade ----
+  const sunLat = site.latitude ?? 45;
+  const doy = useMemo(() => dayOfYear(new Date()), []);
+  const sunBoundary = useMemo(
+    () =>
+      boundary.length >= 3
+        ? boundary
+        : hasLocation
+        ? squareBoundary({ latitude: site.latitude as number, longitude: site.longitude as number }, 36)
+        : [],
+    [boundary, hasLocation, site.latitude, site.longitude]
+  );
+  const shadeTrees: ShadeTree[] = useMemo(
+    () =>
+      placed
+        .map((pp) => {
+          const p = getPlant(pp.plantId);
+          if (!p) return null;
+          if ((p.layer === 'canopy' || p.layer === 'understory') && p.matureHeightM >= 2) {
+            return {
+              latitude: pp.latitude,
+              longitude: pp.longitude,
+              heightM: p.matureHeightM,
+              spreadM: p.matureSpreadM,
+            };
+          }
+          return null;
+        })
+        .filter((t): t is ShadeTree => t !== null),
+    [placed]
+  );
+  const microCells = useMemo(
+    () => (sunMode ? computeMicroclimate(sunBoundary, shadeTrees, sunLat, doy) : []),
+    [sunMode, sunBoundary, shadeTrees, sunLat, doy]
+  );
+  const sunPos = solarPosition(sunLat, doy, sunHour);
+
+  // Build a shadow "streak" polygon for a tree at the current time.
+  function shadowPolygon(pp: { latitude: number; longitude: number }, heightM: number, spreadM: number) {
+    const off = shadowOffsetMeters(sunLat, doy, sunHour, heightM);
+    if (!off.valid) return null;
+    const len = Math.hypot(off.east, off.north) || 1;
+    const ux = off.east / len;
+    const uy = off.north / len;
+    const r = Math.max(0.6, spreadM / 2);
+    const px = -uy * r; // perpendicular * canopy radius
+    const py = ux * r;
+    const dLat = (mN: number) => metersToLatDelta(mN);
+    const dLng = (mE: number) => metersToLngDelta(mE, pp.latitude);
+    const base = pp;
+    const tip = {
+      latitude: pp.latitude + dLat(off.north),
+      longitude: pp.longitude + dLng(off.east),
+    };
+    return [
+      { latitude: base.latitude + dLat(py), longitude: base.longitude + dLng(px) },
+      { latitude: base.latitude - dLat(py), longitude: base.longitude - dLng(px) },
+      { latitude: tip.latitude - dLat(py), longitude: tip.longitude - dLng(px) },
+      { latitude: tip.latitude + dLat(py), longitude: tip.longitude + dLng(px) },
+    ];
+  }
+
+  function formatHour(h: number) {
+    const hr = Math.floor(h);
+    const min = Math.round((h - hr) * 60);
+    const ampm = hr >= 12 ? 'PM' : 'AM';
+    const h12 = ((hr + 11) % 12) + 1;
+    return `${h12}:${min.toString().padStart(2, '0')} ${ampm}`;
+  }
+
+  function plantTheShade() {
+    if (microCells.length === 0) return;
+    const shadePlants = PLANTS.filter(
+      (p) =>
+        suitability(p, site).ok &&
+        (p.sun === 'shade' || p.sun === 'partial') &&
+        ['groundcover', 'herbaceous', 'shrub'].includes(p.layer)
+    );
+    const sunPlants = PLANTS.filter(
+      (p) =>
+        suitability(p, site).ok &&
+        p.sun === 'full' &&
+        ['groundcover', 'herbaceous', 'shrub'].includes(p.layer)
+    );
+    const items: { plantId: string; latitude: number; longitude: number }[] = [];
+    let ci = 0;
+    let si = 0;
+    microCells.forEach((cell, i) => {
+      if (i % 2 !== 0) return; // thin out so it isn't wall-to-wall
+      if (cell.klass === 'cool' && shadePlants.length) {
+        items.push({ plantId: shadePlants[ci++ % shadePlants.length].id, latitude: cell.latitude, longitude: cell.longitude });
+      } else if (cell.klass === 'hot' && sunPlants.length) {
+        items.push({ plantId: sunPlants[si++ % sunPlants.length].id, latitude: cell.latitude, longitude: cell.longitude });
+      }
+    });
+    if (items.length === 0) return;
+    placePlants(items);
+    Alert.alert(
+      '🌱 Planted to the light',
+      `${items.length} plants placed — shade-lovers in the cool blue zones, sun-lovers in the warm ones.`
+    );
+  }
 
   function toggleBoundary() {
     if (boundary.length > 0) {
@@ -213,6 +340,34 @@ export function DesignScreen() {
         }}
       >
         <BasemapTiles />
+
+        {/* Microclimate cells (cool/moist vs hot/dry) */}
+        {sunMode &&
+          microCells
+            .filter((c) => c.klass !== 'mod')
+            .map((c, i) => (
+              <Circle
+                key={`mc-${i}`}
+                center={{ latitude: c.latitude, longitude: c.longitude }}
+                radius={2.4}
+                strokeWidth={0}
+                fillColor={`${MICRO_META[c.klass].color}44`}
+              />
+            ))}
+
+        {/* Moving tree shadows */}
+        {sunMode &&
+          shadeTrees.map((t, i) => {
+            const poly = shadowPolygon(t, t.heightM, t.spreadM);
+            return poly ? (
+              <Polygon
+                key={`sh-${i}`}
+                coordinates={poly}
+                strokeWidth={0}
+                fillColor="rgba(18,20,40,0.28)"
+              />
+            ) : null;
+          })}
 
         {/* Inferred property outline for privacy planting */}
         {boundary.length >= 3 && (
@@ -370,6 +525,16 @@ export function DesignScreen() {
           <Text style={styles.ctrlIcon}>🏗️</Text>
           <Text style={styles.ctrlText}>Build</Text>
         </Pressable>
+        <Pressable
+          style={[styles.ctrlBtn, sunMode && styles.ctrlBtnActive]}
+          onPress={() => {
+            setSunMode((m) => !m);
+            setPlaying(false);
+          }}
+        >
+          <Text style={styles.ctrlIcon}>☀️</Text>
+          <Text style={styles.ctrlText}>Sun</Text>
+        </Pressable>
         <BasemapToggle style={{ width: 72 }} />
       </View>
 
@@ -471,23 +636,69 @@ export function DesignScreen() {
         );
       })()}
 
-      {/* Quick-add tray */}
-      <View style={[styles.tray, { paddingBottom: insets.bottom + spacing.sm }]}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.trayRow}>
-          {suited.map((p) => (
-            <Pressable key={p.id} style={styles.trayItem} onPress={() => quickAdd(p.id)}>
-              <Text style={styles.trayIcon}>{p.icon}</Text>
-              <Text style={styles.trayName} numberOfLines={1}>
-                {p.common}
-              </Text>
+      {/* Quick-add tray (hidden in Sun mode) */}
+      {!sunMode && (
+        <View style={[styles.tray, { paddingBottom: insets.bottom + spacing.sm }]}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.trayRow}>
+            {suited.map((p) => (
+              <Pressable key={p.id} style={styles.trayItem} onPress={() => quickAdd(p.id)}>
+                <Text style={styles.trayIcon}>{p.icon}</Text>
+                <Text style={styles.trayName} numberOfLines={1}>
+                  {p.common}
+                </Text>
+              </Pressable>
+            ))}
+            <Pressable style={styles.trayMore} onPress={() => navigation.navigate('Plants')}>
+              <Text style={styles.trayMoreIcon}>＋</Text>
+              <Text style={styles.trayName}>Browse</Text>
             </Pressable>
-          ))}
-          <Pressable style={styles.trayMore} onPress={() => navigation.navigate('Plants')}>
-            <Text style={styles.trayMoreIcon}>＋</Text>
-            <Text style={styles.trayName}>Browse</Text>
+          </ScrollView>
+        </View>
+      )}
+
+      {/* Sun & shade panel */}
+      {sunMode && (
+        <View style={[styles.sunPanel, { paddingBottom: insets.bottom + spacing.sm }]}>
+          <View style={styles.sunRow}>
+            <Pressable onPress={() => setPlaying((p) => !p)} style={styles.playBtn}>
+              <Text style={styles.playIcon}>{playing ? '⏸' : '▶︎'}</Text>
+            </Pressable>
+            <Text style={styles.sunTime}>
+              ☀️ {formatHour(sunHour)} · {Math.max(0, Math.round(sunPos.altitude))}° high
+            </Text>
+            <Pressable
+              onPress={() => {
+                setSunMode(false);
+                setPlaying(false);
+              }}
+            >
+              <Text style={styles.sunClose}>Done</Text>
+            </Pressable>
+          </View>
+
+          <TimeSlider min={5} max={20} value={sunHour} onChange={setSunHour} />
+
+          <View style={styles.sunLegend}>
+            {(['cool', 'mod', 'hot'] as const).map((k) => (
+              <View key={k} style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: MICRO_META[k].color }]} />
+                <Text style={styles.legendText}>{MICRO_META[k].label}</Text>
+              </View>
+            ))}
+          </View>
+
+          <Pressable style={styles.shadeBtn} onPress={plantTheShade}>
+            <Text style={styles.shadeBtnText}>🌱 Plant to the light</Text>
           </Pressable>
-        </ScrollView>
-      </View>
+
+          <Text style={styles.quote}>"{SUN_QUOTE.text}"</Text>
+          <Text style={styles.quoteAuthor}>— {SUN_QUOTE.author}</Text>
+          <Text style={styles.sunTip}>
+            In hot summers, afternoon shade cuts heat stress and bolting for leafy
+            greens — site the veggie beds where trees shade them after midday.
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -685,6 +896,44 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   trayMoreIcon: { fontSize: 22, color: colors.primary, fontWeight: '800' },
+  sunPanel: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    backgroundColor: 'rgba(15,26,18,0.94)',
+    borderTopLeftRadius: radius.lg,
+    borderTopRightRadius: radius.lg,
+  },
+  sunRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  playBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  playIcon: { fontSize: 18, color: '#0f1a12' },
+  sunTime: { color: '#fff', fontSize: 15, fontWeight: '700', flex: 1, textAlign: 'center' },
+  sunClose: { color: colors.primary, fontWeight: '700', fontSize: 15 },
+  sunLegend: { flexDirection: 'row', justifyContent: 'space-around', marginTop: spacing.sm },
+  legendItem: { flexDirection: 'row', alignItems: 'center' },
+  legendDot: { width: 12, height: 12, borderRadius: 6, marginRight: 6 },
+  legendText: { color: '#dfeee0', fontSize: 12 },
+  shadeBtn: {
+    marginTop: spacing.md,
+    backgroundColor: colors.primary,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    alignItems: 'center',
+  },
+  shadeBtnText: { color: '#0f1a12', fontWeight: '800', fontSize: 15 },
+  quote: { color: '#eef4ee', fontStyle: 'italic', fontSize: 12, marginTop: spacing.md, lineHeight: 17 },
+  quoteAuthor: { color: colors.textMuted, fontSize: 11, marginTop: 2, textAlign: 'right' },
+  sunTip: { color: colors.textMuted, fontSize: 11, marginTop: spacing.sm, lineHeight: 16 },
   empty: { flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center', padding: spacing.xl },
   emptyIcon: { fontSize: 48, marginBottom: spacing.md },
   emptyTitle: { color: colors.text, fontSize: 22, fontWeight: '800', marginBottom: spacing.sm },
