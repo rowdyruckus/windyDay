@@ -33,6 +33,7 @@ import {
   ShadeTree,
 } from '../data/sun';
 import { TimeSlider } from '../components/TimeSlider';
+import { DEMO_SITE } from '../data/demo';
 import { STRUCTURE_META, structureRadiusM } from '../data/structures';
 import { StructureMarker } from '../components/StructureMarker';
 import { StructureType } from '../types';
@@ -76,17 +77,18 @@ export function DesignScreen() {
     return () => clearInterval(id);
   }, [playing]);
 
+  // Before the user sets their own site, center on a real example garden.
+  const viewLat = site.latitude ?? DEMO_SITE.latitude;
+  const viewLng = site.longitude ?? DEMO_SITE.longitude;
+
   // Track the map center so quick-add drops plants where you're looking.
-  const centerRef = useRef({
-    latitude: site.latitude ?? 39.5,
-    longitude: site.longitude ?? -98.35,
-  });
+  const centerRef = useRef({ latitude: viewLat, longitude: viewLng });
 
   const initialRegion: Region = {
-    latitude: site.latitude ?? 39.5,
-    longitude: site.longitude ?? -98.35,
-    latitudeDelta: hasLocation ? 0.0015 : 40,
-    longitudeDelta: hasLocation ? 0.0015 : 40,
+    latitude: viewLat,
+    longitude: viewLng,
+    latitudeDelta: 0.0018,
+    longitudeDelta: 0.0018,
   };
 
   // Plants suited to the site, for the quick-add tray.
@@ -105,16 +107,14 @@ export function DesignScreen() {
   );
 
   // ---- Sun & shade ----
-  const sunLat = site.latitude ?? 45;
+  const sunLat = site.latitude ?? DEMO_SITE.latitude;
   const doy = useMemo(() => dayOfYear(new Date()), []);
   const sunBoundary = useMemo(
     () =>
       boundary.length >= 3
         ? boundary
-        : hasLocation
-        ? squareBoundary({ latitude: site.latitude as number, longitude: site.longitude as number }, 36)
-        : [],
-    [boundary, hasLocation, site.latitude, site.longitude]
+        : squareBoundary({ latitude: viewLat, longitude: viewLng }, 36),
+    [boundary, viewLat, viewLng]
   );
   const shadeTrees: ShadeTree[] = useMemo(
     () =>
@@ -265,7 +265,7 @@ export function DesignScreen() {
     const guessedZone =
       site.zone ??
       region?.zone ??
-      (site.latitude != null ? estimateZoneFromLatitude(site.latitude) : 7);
+      (site.latitude != null ? estimateZoneFromLatitude(site.latitude) : DEMO_SITE.zone);
     const effectiveSite = { ...site, zone: guessedZone };
 
     const points = autoDesign(poly, effectiveSite);
@@ -310,22 +310,6 @@ export function DesignScreen() {
   function clearSelection() {
     setSelected(null);
     setSelectedStructure(null);
-  }
-
-  if (!hasLocation) {
-    return (
-      <View style={[styles.empty, { paddingTop: insets.top }]}>
-        <Text style={styles.emptyIcon}>🗺️</Text>
-        <Text style={styles.emptyTitle}>Set your land first</Text>
-        <Text style={styles.emptyBody}>
-          Add your location on the Site tab and we'll bring up the satellite
-          view of your land to design on.
-        </Text>
-        <Pressable style={styles.emptyBtn} onPress={() => navigation.navigate('Site')}>
-          <Text style={styles.emptyBtnText}>Go to Site</Text>
-        </Pressable>
-      </View>
-    );
   }
 
   return (
@@ -473,11 +457,16 @@ export function DesignScreen() {
 
       {/* Top summary */}
       <View style={[styles.topBar, { paddingTop: insets.top + spacing.sm }]}>
-        <View>
-          <Text style={styles.topTitle}>{site.label}</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.topTitle}>{hasLocation ? site.label : DEMO_SITE.label}</Text>
           <Text style={styles.topSub}>
-            {placed.length} planting{placed.length === 1 ? '' : 's'}
-            {structures.length > 0 ? ` · ${structures.length} structure${structures.length === 1 ? '' : 's'}` : ''} · plant, 🏗️ build a hive/pond/coop, or hedge your edge
+            {hasLocation
+              ? `${placed.length} planting${placed.length === 1 ? '' : 's'}${
+                  structures.length > 0
+                    ? ` · ${structures.length} structure${structures.length === 1 ? '' : 's'}`
+                    : ''
+                } · plant, 🏗️ build, or ☀️ study the sun`
+              : 'Example garden — explore, then add your own land'}
           </Text>
         </View>
         {(placed.length > 0 || structures.length > 0) && (
@@ -635,6 +624,18 @@ export function DesignScreen() {
           </View>
         );
       })()}
+
+      {/* Example-garden banner before the user sets their own land */}
+      {!hasLocation && !sunMode && (
+        <View style={[styles.demoBanner, { bottom: insets.bottom + 96 }]}>
+          <Text style={styles.demoText}>
+            🌱 You're exploring the {DEMO_SITE.label}. Try ✨ Auto here, or switch to your own land.
+          </Text>
+          <Pressable style={styles.demoBtn} onPress={() => navigation.navigate('Site')}>
+            <Text style={styles.demoBtnText}>📍 Use my land</Text>
+          </Pressable>
+        </View>
+      )}
 
       {/* Quick-add tray (hidden in Sun mode) */}
       {!sunMode && (
@@ -934,6 +935,27 @@ const styles = StyleSheet.create({
   quote: { color: '#eef4ee', fontStyle: 'italic', fontSize: 12, marginTop: spacing.md, lineHeight: 17 },
   quoteAuthor: { color: colors.textMuted, fontSize: 11, marginTop: 2, textAlign: 'right' },
   sunTip: { color: colors.textMuted, fontSize: 11, marginTop: spacing.sm, lineHeight: 16 },
+  demoBanner: {
+    position: 'absolute',
+    left: spacing.lg,
+    right: spacing.lg,
+    backgroundColor: 'rgba(15,26,18,0.92)',
+    borderColor: colors.primary,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  demoText: { color: '#eef4ee', fontSize: 13, flex: 1, lineHeight: 18 },
+  demoBtn: {
+    backgroundColor: colors.primary,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.sm,
+  },
+  demoBtnText: { color: '#0f1a12', fontWeight: '800', fontSize: 13 },
   empty: { flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center', padding: spacing.xl },
   emptyIcon: { fontSize: 48, marginBottom: spacing.md },
   emptyTitle: { color: colors.text, fontSize: 22, fontWeight: '800', marginBottom: spacing.sm },
