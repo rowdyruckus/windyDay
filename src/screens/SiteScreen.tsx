@@ -18,6 +18,7 @@ import { estimateZoneFromLatitude, zoneLabel } from '../data/climate';
 import { SunNeed } from '../types';
 import { Card, SectionTitle } from '../components/ui';
 import { BasemapTiles, BasemapToggle, EsriAttribution } from '../components/Basemap';
+import { MapZoomControls } from '../components/MapZoomControls';
 
 const SUN_OPTIONS: { value: SunNeed; label: string; icon: string }[] = [
   { value: 'full', label: 'Full sun', icon: '☀️' },
@@ -142,6 +143,7 @@ export function SiteScreen() {
           </View>
         )}
         <BasemapToggle style={styles.mapToggle} />
+        <MapZoomControls mapRef={mapRef} style={styles.mapZoom} />
         <EsriAttribution />
       </View>
 
@@ -351,6 +353,7 @@ const styles = StyleSheet.create({
   },
   mapHintText: { color: '#fff', textAlign: 'center', fontSize: 13 },
   mapToggle: { position: 'absolute', top: spacing.sm, right: spacing.sm },
+  mapZoom: { position: 'absolute', bottom: spacing.sm, right: spacing.sm },
   locateBtn: {
     marginTop: spacing.md,
     backgroundColor: colors.primary,

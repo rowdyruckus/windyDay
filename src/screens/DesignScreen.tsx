@@ -33,6 +33,7 @@ import {
   ShadeTree,
 } from '../data/sun';
 import { TimeSlider } from '../components/TimeSlider';
+import { MapZoomControls } from '../components/MapZoomControls';
 import { DEMO_SITE } from '../data/demo';
 import { STRUCTURE_META, structureRadiusM } from '../data/structures';
 import { StructureMarker } from '../components/StructureMarker';
@@ -331,6 +332,35 @@ export function DesignScreen() {
       >
         <BasemapTiles />
 
+        {/* Example blueberry bush on the grass, shown on an empty design */}
+        {placed.length === 0 &&
+          (() => {
+            const bb = getPlant('blueberry');
+            if (!bb) return null;
+            const coord = { latitude: viewLat, longitude: viewLng };
+            return (
+              <React.Fragment>
+                <Circle
+                  center={coord}
+                  radius={Math.max(0.5, bb.matureSpreadM / 2)}
+                  strokeColor={LAYER_META[bb.layer].color}
+                  strokeWidth={1.5}
+                  fillColor={`${LAYER_META[bb.layer].color}44`}
+                />
+                <Marker coordinate={coord} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}>
+                  <View style={{ alignItems: 'center' }}>
+                    <View style={styles.markerBubble}>
+                      <Text style={styles.markerIcon}>{bb.icon}</Text>
+                    </View>
+                    <View style={styles.exampleTag}>
+                      <Text style={styles.exampleTagText}>Example</Text>
+                    </View>
+                  </View>
+                </Marker>
+              </React.Fragment>
+            );
+          })()}
+
         {/* Microclimate cells (cool/moist vs hot/dry) */}
         {sunMode &&
           microCells
@@ -534,6 +564,8 @@ export function DesignScreen() {
       </View>
 
       <EsriAttribution style={{ bottom: insets.bottom + 96 }} />
+
+      <MapZoomControls mapRef={mapRef} style={[styles.zoom, { top: insets.top + 64 }]} />
 
       {/* Center crosshair to show where quick-add will drop */}
       <View pointerEvents="none" style={styles.crosshair}>
@@ -779,6 +811,15 @@ const styles = StyleSheet.create({
   },
   markerBubbleSel: { borderColor: colors.accent, borderWidth: 3 },
   markerIcon: { fontSize: 18 },
+  exampleTag: {
+    marginTop: 3,
+    backgroundColor: 'rgba(15,26,18,0.8)',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  exampleTagText: { color: '#fff', fontSize: 10, fontWeight: '700' },
+  zoom: { position: 'absolute', left: spacing.md },
   corner: {
     width: 16,
     height: 16,
