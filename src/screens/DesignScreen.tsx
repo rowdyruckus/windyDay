@@ -35,6 +35,7 @@ import {
 import { TimeSlider } from '../components/TimeSlider';
 import { MapZoomControls } from '../components/MapZoomControls';
 import { GrowingPlant } from '../components/GrowingPlant';
+import { PlantMarker } from '../components/PlantMarker';
 import { DEMO_SITE } from '../data/demo';
 import { STRUCTURE_META, structureRadiusM } from '../data/structures';
 import { StructureMarker } from '../components/StructureMarker';
@@ -87,6 +88,13 @@ export function DesignScreen() {
   const centerRef = useRef({ latitude: viewLat, longitude: viewLng });
   const mapRef = useRef<MapView | null>(null);
   const mapReady = useRef(false);
+  // Track which plantings we've already shown, so only *newly placed* ones grow in.
+  const knownIds = useRef<Set<string>>(new Set());
+  const knownInit = useRef(false);
+  React.useEffect(() => {
+    placed.forEach((p) => knownIds.current.add(p.instanceId));
+    knownInit.current = true;
+  }, [placed]);
 
   // Cinematic slow pan + zoom-in to the place (rotated 90° clockwise, heading 270).
   const flyIn = useCallback(() => {
@@ -460,6 +468,8 @@ export function DesignScreen() {
           if (!plant) return null;
           const layer = LAYER_META[plant.layer];
           const isSel = pp.instanceId === selected;
+          // Grow in only if this planting is new since we first loaded.
+          const animateIn = knownInit.current && !knownIds.current.has(pp.instanceId);
           return (
             <React.Fragment key={pp.instanceId}>
               {/* Mature canopy/spread footprint, true-to-scale in metres */}
@@ -470,27 +480,18 @@ export function DesignScreen() {
                 strokeWidth={isSel ? 3 : 1.5}
                 fillColor={`${layer.color}44`}
               />
-              <Marker
-                coordinate={{ latitude: pp.latitude, longitude: pp.longitude }}
-                draggable
-                onDragEnd={(e) =>
-                  movePlant(
-                    pp.instanceId,
-                    e.nativeEvent.coordinate.latitude,
-                    e.nativeEvent.coordinate.longitude
-                  )
-                }
+              <PlantMarker
+                latitude={pp.latitude}
+                longitude={pp.longitude}
+                icon={plant.icon}
+                selected={isSel}
+                animateIn={animateIn}
                 onPress={() => {
                   setSelectedStructure(null);
                   setSelected(pp.instanceId);
                 }}
-                anchor={{ x: 0.5, y: 0.5 }}
-                tracksViewChanges={false}
-              >
-                <View style={[styles.markerBubble, isSel && styles.markerBubbleSel]}>
-                  <Text style={styles.markerIcon}>{plant.icon}</Text>
-                </View>
-              </Marker>
+                onDragEnd={(lat, lng) => movePlant(pp.instanceId, lat, lng)}
+              />
             </React.Fragment>
           );
         })}
