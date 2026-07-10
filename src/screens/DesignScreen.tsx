@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,7 @@ import {
   Alert,
 } from 'react-native';
 import MapView, { Marker, Circle, Polygon, Region } from 'react-native-maps';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, radius, spacing, LAYER_META } from '../theme';
 import { useDesignStore } from '../store/useDesignStore';
@@ -85,9 +85,42 @@ export function DesignScreen() {
   // Track the map center so quick-add drops plants where you're looking.
   const centerRef = useRef({ latitude: viewLat, longitude: viewLng });
   const mapRef = useRef<MapView | null>(null);
+  const mapReady = useRef(false);
 
-  // Rotate the satellite view 90° clockwise (camera heading 270°).
-  const applyHeading = () => mapRef.current?.setCamera({ heading: 270 });
+  // Cinematic slow pan + zoom-in to the place (rotated 90° clockwise, heading 270).
+  const flyIn = useCallback(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const center = { latitude: viewLat, longitude: viewLng };
+    map.setCamera({
+      center: { latitude: viewLat + 0.0026, longitude: viewLng - 0.0026 },
+      heading: 270,
+      pitch: 0,
+      zoom: 13,
+      altitude: 4200,
+    });
+    setTimeout(() => {
+      map.animateCamera(
+        { center, heading: 270, pitch: 0, zoom: 18, altitude: 600 },
+        { duration: 3800 }
+      );
+    }, 90);
+  }, [viewLat, viewLng]);
+
+  const onMapReady = () => {
+    mapReady.current = true;
+    flyIn();
+  };
+
+  // Re-run the reveal each time the Design tab regains focus (after first load).
+  useFocusEffect(
+    useCallback(() => {
+      if (mapReady.current) {
+        const t = setTimeout(flyIn, 120);
+        return () => clearTimeout(t);
+      }
+    }, [flyIn])
+  );
 
   const initialRegion: Region = {
     latitude: viewLat,
@@ -324,7 +357,7 @@ export function DesignScreen() {
         style={StyleSheet.absoluteFill}
         mapType="satellite"
         initialRegion={initialRegion}
-        onMapReady={applyHeading}
+        onMapReady={onMapReady}
         onPress={clearSelection}
         onRegionChangeComplete={(r) => {
           centerRef.current = { latitude: r.latitude, longitude: r.longitude };

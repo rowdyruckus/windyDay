@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { colors, radius, spacing } from '../theme';
 import { useDesignStore } from '../store/useDesignStore';
 import { estimateZoneFromLatitude, zoneLabel } from '../data/climate';
@@ -39,11 +40,45 @@ export function SiteScreen() {
   const regionStatus = useDesignStore((s) => s.regionStatus);
   const [loading, setLoading] = useState(false);
   const mapRef = useRef<MapView | null>(null);
-
-  // Rotate the satellite view 90° clockwise (camera heading 270°).
-  const applyHeading = () => mapRef.current?.setCamera({ heading: 270 });
+  const mapReady = useRef(false);
 
   const hasLocation = site.latitude != null && site.longitude != null;
+
+  // Cinematic slow pan + zoom-in to the place (rotated 90° clockwise).
+  const flyIn = useCallback(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const lat = site.latitude ?? 39.5;
+    const lng = site.longitude ?? -98.35;
+    map.setCamera({
+      center: { latitude: lat + 0.004, longitude: lng - 0.004 },
+      heading: 270,
+      pitch: 0,
+      zoom: 12,
+      altitude: 7000,
+    });
+    setTimeout(() => {
+      map.animateCamera(
+        { center: { latitude: lat, longitude: lng }, heading: 270, pitch: 0, zoom: 16, altitude: 1600 },
+        { duration: 3800 }
+      );
+    }, 90);
+  }, [site.latitude, site.longitude]);
+
+  const onMapReady = () => {
+    mapReady.current = true;
+    flyIn();
+  };
+
+  // Re-run the reveal each time the Site tab regains focus (after first load).
+  useFocusEffect(
+    useCallback(() => {
+      if (mapReady.current) {
+        const t = setTimeout(flyIn, 120);
+        return () => clearTimeout(t);
+      }
+    }, [flyIn])
+  );
 
   // Resolve region intelligence when we have (or gain) a location.
   useEffect(() => {
@@ -52,12 +87,12 @@ export function SiteScreen() {
     }
   }, [site.latitude, site.longitude, resolveRegion]);
 
-  // Recentering via the region prop resets heading to north, so re-apply the
-  // 90° rotation shortly after the location changes.
+  // Fly in again whenever the location changes (e.g. after "Use my location").
   useEffect(() => {
-    const t = setTimeout(applyHeading, 400);
+    if (!mapReady.current) return;
+    const t = setTimeout(flyIn, 400);
     return () => clearTimeout(t);
-  }, [site.latitude, site.longitude]);
+  }, [site.latitude, site.longitude, flyIn]);
 
   async function locate() {
     try {
@@ -82,19 +117,20 @@ export function SiteScreen() {
     }
   }
 
-  const region = hasLocation
-    ? {
-        latitude: site.latitude as number,
-        longitude: site.longitude as number,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
-      }
-    : {
-        latitude: 39.5,
-        longitude: -98.35,
-        latitudeDelta: 40,
-        longitudeDelta: 40,
-      };
+  // Memoized so unrelated re-renders don't re-assert the region and interrupt
+  // the fly-in animation.
+  const region = useMemo(
+    () =>
+      hasLocation
+        ? {
+            latitude: site.latitude as number,
+            longitude: site.longitude as number,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
+          }
+        : { latitude: 39.5, longitude: -98.35, latitudeDelta: 40, longitudeDelta: 40 },
+    [hasLocation, site.latitude, site.longitude]
+  );
 
   return (
     <ScrollView
@@ -113,7 +149,7 @@ export function SiteScreen() {
           style={StyleSheet.absoluteFill}
           mapType="satellite"
           region={region}
-          onMapReady={applyHeading}
+          onMapReady={onMapReady}
           onPress={(e) => {
             const { latitude, longitude } = e.nativeEvent.coordinate;
             setLocation(latitude, longitude, estimateZoneFromLatitude(latitude));
