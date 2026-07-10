@@ -12,6 +12,7 @@ import {
 } from '../data/region';
 
 export type RegionStatus = 'idle' | 'loading' | 'ready' | 'error';
+export type Basemap = 'apple' | 'esri';
 
 let instanceCounter = 0;
 function newInstanceId(prefix = 'pp'): string {
@@ -28,6 +29,8 @@ interface DesignState {
   /** Region intelligence resolved from the site coordinates. */
   region: RegionProfile | null;
   regionStatus: RegionStatus;
+  /** Which imagery layer to show on the maps. */
+  basemap: Basemap;
   hydrated: boolean;
 
   setLocation: (latitude: number, longitude: number, zone: number) => void;
@@ -59,6 +62,8 @@ interface DesignState {
   /** Resolve region data for a coordinate (cached; force to refetch). */
   resolveRegion: (lat: number, lon: number, force?: boolean) => Promise<void>;
 
+  setBasemap: (basemap: Basemap) => void;
+
   setHydrated: () => void;
 }
 
@@ -80,6 +85,7 @@ export const useDesignStore = create<DesignState>()(
       boundary: [],
       region: null,
       regionStatus: 'idle',
+      basemap: 'apple',
       hydrated: false,
 
       setLocation: (latitude, longitude, zone) =>
@@ -208,6 +214,8 @@ export const useDesignStore = create<DesignState>()(
         }
       },
 
+      setBasemap: (basemap) => set(() => ({ basemap })),
+
       setHydrated: () => set(() => ({ hydrated: true })),
     }),
     {
@@ -219,6 +227,7 @@ export const useDesignStore = create<DesignState>()(
         structures: s.structures,
         boundary: s.boundary,
         region: s.region,
+        basemap: s.basemap,
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHydrated();

@@ -17,6 +17,7 @@ import { useDesignStore } from '../store/useDesignStore';
 import { estimateZoneFromLatitude, zoneLabel } from '../data/climate';
 import { SunNeed } from '../types';
 import { Card, SectionTitle } from '../components/ui';
+import { BasemapTiles, BasemapToggle, EsriAttribution } from '../components/Basemap';
 
 const SUN_OPTIONS: { value: SunNeed; label: string; icon: string }[] = [
   { value: 'full', label: 'Full sun', icon: '☀️' },
@@ -103,6 +104,7 @@ export function SiteScreen() {
             setLocation(latitude, longitude, estimateZoneFromLatitude(latitude));
           }}
         >
+          <BasemapTiles />
           {hasLocation && (
             <Marker
               draggable
@@ -125,6 +127,8 @@ export function SiteScreen() {
             </Text>
           </View>
         )}
+        <BasemapToggle style={styles.mapToggle} />
+        <EsriAttribution />
       </View>
 
       <Pressable style={styles.locateBtn} onPress={locate} disabled={loading}>
@@ -314,6 +318,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
   },
   mapHintText: { color: '#fff', textAlign: 'center', fontSize: 13 },
+  mapToggle: { position: 'absolute', top: spacing.sm, right: spacing.sm },
   locateBtn: {
     marginTop: spacing.md,
     backgroundColor: colors.primary,

@@ -24,6 +24,7 @@ import { estimateZoneFromLatitude } from '../data/climate';
 import { STRUCTURE_META, structureRadiusM } from '../data/structures';
 import { StructureMarker } from '../components/StructureMarker';
 import { StructureType } from '../types';
+import { BasemapTiles, BasemapToggle, EsriAttribution } from '../components/Basemap';
 
 export function DesignScreen() {
   const insets = useSafeAreaInsets();
@@ -211,6 +212,8 @@ export function DesignScreen() {
           centerRef.current = { latitude: r.latitude, longitude: r.longitude };
         }}
       >
+        <BasemapTiles />
+
         {/* Inferred property outline for privacy planting */}
         {boundary.length >= 3 && (
           <Polygon
@@ -367,7 +370,10 @@ export function DesignScreen() {
           <Text style={styles.ctrlIcon}>🏗️</Text>
           <Text style={styles.ctrlText}>Build</Text>
         </Pressable>
+        <BasemapToggle style={{ width: 72 }} />
       </View>
+
+      <EsriAttribution style={{ bottom: insets.bottom + 96 }} />
 
       {/* Center crosshair to show where quick-add will drop */}
       <View pointerEvents="none" style={styles.crosshair}>
