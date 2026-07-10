@@ -32,6 +32,8 @@ interface DesignState {
   regionStatus: RegionStatus;
   /** Which imagery layer to show on the maps. */
   basemap: Basemap;
+  /** Whether the startup music is muted. */
+  musicMuted: boolean;
   hydrated: boolean;
 
   setLocation: (latitude: number, longitude: number, zone: number) => void;
@@ -64,6 +66,8 @@ interface DesignState {
   resolveRegion: (lat: number, lon: number, force?: boolean) => Promise<void>;
 
   setBasemap: (basemap: Basemap) => void;
+
+  toggleMusic: () => void;
 
   /** Clear the saved site & region so the example garden shows again. */
   clearSite: () => void;
@@ -103,6 +107,7 @@ export const useDesignStore = create<DesignState>()(
       region: null,
       regionStatus: 'idle',
       basemap: 'apple',
+      musicMuted: false,
       hydrated: false,
 
       setLocation: (latitude, longitude, zone) =>
@@ -233,6 +238,8 @@ export const useDesignStore = create<DesignState>()(
 
       setBasemap: (basemap) => set(() => ({ basemap })),
 
+      toggleMusic: () => set((s) => ({ musicMuted: !s.musicMuted })),
+
       clearSite: () =>
         set(() => ({ site: initialSite, region: null, regionStatus: 'idle' })),
 
@@ -251,6 +258,7 @@ export const useDesignStore = create<DesignState>()(
         boundary: s.boundary,
         region: s.region,
         basemap: s.basemap,
+        musicMuted: s.musicMuted,
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHydrated();

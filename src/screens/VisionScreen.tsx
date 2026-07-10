@@ -28,6 +28,7 @@ import { OrchardCycler } from '../components/OrchardCycler';
 import { VideoBackground } from '../components/VideoBackground';
 import { BROLL_SOURCES } from '../video/broll';
 import { useSoundscape } from '../audio/soundscape';
+import { MUSIC_AVAILABLE } from '../audio/music';
 
 export function VisionScreen() {
   const insets = useSafeAreaInsets();
@@ -36,6 +37,8 @@ export function VisionScreen() {
   const placedIds = usePlacedPlantIds();
   const region = useDesignStore((s) => s.region);
   const resolveRegion = useDesignStore((s) => s.resolveRegion);
+  const musicMuted = useDesignStore((s) => s.musicMuted);
+  const toggleMusic = useDesignStore((s) => s.toggleMusic);
   const sound = useSoundscape();
 
   // Make sure region life is loaded even if the user lands here first.
@@ -124,6 +127,15 @@ export function VisionScreen() {
                   : 'Add a soundscape to hear birdsong & bubbling water'}
               </Text>
             </Pressable>
+
+            {MUSIC_AVAILABLE && (
+              <Pressable onPress={toggleMusic} style={styles.soundBtn}>
+                <Text style={styles.soundIcon}>{musicMuted ? '🔇' : '🎵'}</Text>
+                <Text style={styles.soundText}>
+                  {musicMuted ? 'Music off' : 'Music playing'}
+                </Text>
+              </Pressable>
+            )}
           </View>
         </View>
 
