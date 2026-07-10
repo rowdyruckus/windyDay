@@ -51,16 +51,16 @@ export function SiteScreen() {
     const lat = site.latitude ?? 39.5;
     const lng = site.longitude ?? -98.35;
     map.setCamera({
-      center: { latitude: lat + 0.004, longitude: lng - 0.004 },
+      center: { latitude: lat + 0.008, longitude: lng - 0.008 },
       heading: 270,
       pitch: 0,
-      zoom: 12,
-      altitude: 7000,
+      zoom: 9,
+      altitude: 14000,
     });
     setTimeout(() => {
       map.animateCamera(
-        { center: { latitude: lat, longitude: lng }, heading: 270, pitch: 0, zoom: 16, altitude: 1600 },
-        { duration: 3800 }
+        { center: { latitude: lat, longitude: lng }, heading: 270, pitch: 0, zoom: 15, altitude: 2600 },
+        { duration: 6200 }
       );
     }, 90);
   }, [site.latitude, site.longitude]);

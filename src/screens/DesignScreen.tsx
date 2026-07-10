@@ -102,16 +102,16 @@ export function DesignScreen() {
     if (!map) return;
     const center = { latitude: viewLat, longitude: viewLng };
     map.setCamera({
-      center: { latitude: viewLat + 0.0026, longitude: viewLng - 0.0026 },
+      center: { latitude: viewLat + 0.006, longitude: viewLng - 0.006 },
       heading: 270,
       pitch: 0,
-      zoom: 13,
-      altitude: 4200,
+      zoom: 10,
+      altitude: 9000,
     });
     setTimeout(() => {
       map.animateCamera(
-        { center, heading: 270, pitch: 0, zoom: 18, altitude: 600 },
-        { duration: 3800 }
+        { center, heading: 270, pitch: 0, zoom: 17, altitude: 950 },
+        { duration: 6200 }
       );
     }, 90);
   }, [viewLat, viewLng]);
