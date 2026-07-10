@@ -34,6 +34,7 @@ import {
 } from '../data/sun';
 import { TimeSlider } from '../components/TimeSlider';
 import { MapZoomControls } from '../components/MapZoomControls';
+import { GrowingPlant } from '../components/GrowingPlant';
 import { DEMO_SITE } from '../data/demo';
 import { STRUCTURE_META, structureRadiusM } from '../data/structures';
 import { StructureMarker } from '../components/StructureMarker';
@@ -365,35 +366,6 @@ export function DesignScreen() {
       >
         <BasemapTiles />
 
-        {/* Example blueberry bush on the grass, shown on an empty design */}
-        {placed.length === 0 &&
-          (() => {
-            const bb = getPlant('blueberry');
-            if (!bb) return null;
-            const coord = { latitude: viewLat, longitude: viewLng };
-            return (
-              <React.Fragment>
-                <Circle
-                  center={coord}
-                  radius={Math.max(0.5, bb.matureSpreadM / 2)}
-                  strokeColor={LAYER_META[bb.layer].color}
-                  strokeWidth={1.5}
-                  fillColor={`${LAYER_META[bb.layer].color}44`}
-                />
-                <Marker coordinate={coord} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}>
-                  <View style={{ alignItems: 'center' }}>
-                    <View style={styles.markerBubble}>
-                      <Text style={styles.markerIcon}>{bb.icon}</Text>
-                    </View>
-                    <View style={styles.exampleTag}>
-                      <Text style={styles.exampleTagText}>Example</Text>
-                    </View>
-                  </View>
-                </Marker>
-              </React.Fragment>
-            );
-          })()}
-
         {/* Microclimate cells (cool/moist vs hot/dry) */}
         {sunMode &&
           microCells
@@ -599,6 +571,16 @@ export function DesignScreen() {
       <EsriAttribution style={{ bottom: insets.bottom + 96 }} />
 
       <MapZoomControls mapRef={mapRef} style={[styles.zoom, { top: insets.top + 64 }]} />
+
+      {/* Animated example plant growing on the aerial view (empty design) */}
+      {placed.length === 0 && !sunMode && (
+        <View pointerEvents="none" style={styles.growOverlay}>
+          <GrowingPlant size={1} />
+          <View style={styles.growTag}>
+            <Text style={styles.growTagText}>Example — watch it grow</Text>
+          </View>
+        </View>
+      )}
 
       {/* Center crosshair to show where quick-add will drop */}
       <View pointerEvents="none" style={styles.crosshair}>
@@ -853,6 +835,21 @@ const styles = StyleSheet.create({
   },
   exampleTagText: { color: '#fff', fontSize: 10, fontWeight: '700' },
   zoom: { position: 'absolute', left: spacing.md },
+  growOverlay: {
+    position: 'absolute',
+    top: '32%',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  growTag: {
+    marginTop: spacing.sm,
+    backgroundColor: 'rgba(15,26,18,0.8)',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: radius.sm,
+  },
+  growTagText: { color: '#fff', fontSize: 11, fontWeight: '700' },
   corner: {
     width: 16,
     height: 16,
