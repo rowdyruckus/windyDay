@@ -83,6 +83,10 @@ export function DesignScreen() {
 
   // Track the map center so quick-add drops plants where you're looking.
   const centerRef = useRef({ latitude: viewLat, longitude: viewLng });
+  const mapRef = useRef<MapView | null>(null);
+
+  // Rotate the satellite view 90° clockwise (camera heading 270°).
+  const applyHeading = () => mapRef.current?.setCamera({ heading: 270 });
 
   const initialRegion: Region = {
     latitude: viewLat,
@@ -315,9 +319,11 @@ export function DesignScreen() {
   return (
     <View style={styles.root}>
       <MapView
+        ref={mapRef}
         style={StyleSheet.absoluteFill}
         mapType="satellite"
         initialRegion={initialRegion}
+        onMapReady={applyHeading}
         onPress={clearSelection}
         onRegionChangeComplete={(r) => {
           centerRef.current = { latitude: r.latitude, longitude: r.longitude };

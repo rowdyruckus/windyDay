@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -37,6 +37,10 @@ export function SiteScreen() {
   const regionInfo = useDesignStore((s) => s.region);
   const regionStatus = useDesignStore((s) => s.regionStatus);
   const [loading, setLoading] = useState(false);
+  const mapRef = useRef<MapView | null>(null);
+
+  // Rotate the satellite view 90° clockwise (camera heading 270°).
+  const applyHeading = () => mapRef.current?.setCamera({ heading: 270 });
 
   const hasLocation = site.latitude != null && site.longitude != null;
 
@@ -46,6 +50,13 @@ export function SiteScreen() {
       resolveRegion(site.latitude, site.longitude);
     }
   }, [site.latitude, site.longitude, resolveRegion]);
+
+  // Recentering via the region prop resets heading to north, so re-apply the
+  // 90° rotation shortly after the location changes.
+  useEffect(() => {
+    const t = setTimeout(applyHeading, 400);
+    return () => clearTimeout(t);
+  }, [site.latitude, site.longitude]);
 
   async function locate() {
     try {
@@ -97,9 +108,11 @@ export function SiteScreen() {
 
       <View style={styles.mapWrap}>
         <MapView
+          ref={mapRef}
           style={StyleSheet.absoluteFill}
           mapType="satellite"
           region={region}
+          onMapReady={applyHeading}
           onPress={(e) => {
             const { latitude, longitude } = e.nativeEvent.coordinate;
             setLocation(latitude, longitude, estimateZoneFromLatitude(latitude));
