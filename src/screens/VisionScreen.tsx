@@ -79,10 +79,6 @@ export function VisionScreen() {
             style={StyleSheet.absoluteFill}
           />
 
-          {/* Rising sun glow */}
-          <View style={styles.sun} />
-          <View style={styles.sunCore} />
-
           {/* Leaves drifting on a light breeze, glistening */}
           <GlisteningLeaves height={320} />
 
@@ -286,24 +282,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#243b2b',
     overflow: 'hidden',
     justifyContent: 'flex-end',
-  },
-  sun: {
-    position: 'absolute',
-    top: 40,
-    alignSelf: 'center',
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    backgroundColor: 'rgba(255,214,150,0.35)',
-  },
-  sunCore: {
-    position: 'absolute',
-    top: 90,
-    alignSelf: 'center',
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    backgroundColor: 'rgba(255,236,196,0.85)',
   },
   heroContent: { padding: spacing.lg },
   dawnTag: {
