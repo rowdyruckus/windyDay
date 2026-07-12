@@ -17,6 +17,8 @@ export function PlantMarker({
   animateIn,
   onPress,
   onDragEnd,
+  sizeScale = 1,
+  liveResize = false,
 }: {
   latitude: number;
   longitude: number;
@@ -25,6 +27,10 @@ export function PlantMarker({
   animateIn: boolean;
   onPress: () => void;
   onDragEnd: (lat: number, lng: number) => void;
+  /** Extra scale applied to the bubble (e.g. to shrink young plants). */
+  sizeScale?: number;
+  /** Re-render the marker bitmap as sizeScale changes (Grow mode). */
+  liveResize?: boolean;
 }) {
   const scale = useRef(new Animated.Value(animateIn ? 0 : 1)).current;
   const [tracks, setTracks] = useState(true);
@@ -48,6 +54,14 @@ export function PlantMarker({
     return () => clearTimeout(t);
   }, [selected, animateIn]);
 
+  // In Grow mode, re-render as the plant's size changes with the year.
+  useEffect(() => {
+    if (!liveResize) return;
+    setTracks(true);
+    const t = setTimeout(() => setTracks(false), 260);
+    return () => clearTimeout(t);
+  }, [sizeScale, liveResize]);
+
   return (
     <Marker
       coordinate={{ latitude, longitude }}
@@ -59,7 +73,7 @@ export function PlantMarker({
       anchor={{ x: 0.5, y: 0.5 }}
       tracksViewChanges={tracks}
     >
-      <Animated.View style={{ transform: [{ scale }] }}>
+      <Animated.View style={{ transform: [{ scale }, { scale: sizeScale }] }}>
         <View style={[styles.bubble, selected && styles.bubbleSel]}>
           <Text style={styles.icon}>{icon}</Text>
         </View>

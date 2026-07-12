@@ -72,6 +72,23 @@ export function pointsAlongPerimeter(
   return out;
 }
 
+/** Approximate area of a lat/lng polygon in square metres (shoelace). */
+export function polygonAreaM2(poly: LatLng[]): number {
+  if (poly.length < 3) return 0;
+  const refLat = poly[0].latitude;
+  const cosLat = Math.cos((refLat * Math.PI) / 180) || 1e-6;
+  const pts = poly.map((p) => ({
+    x: p.longitude * M_PER_DEG_LAT * cosLat,
+    y: p.latitude * M_PER_DEG_LAT,
+  }));
+  let a = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const j = (i + 1) % pts.length;
+    a += pts[i].x * pts[j].y - pts[j].x * pts[i].y;
+  }
+  return Math.abs(a) / 2;
+}
+
 /**
  * A plant is a good privacy screen if it's a tall shrub or understory tree —
  * dense enough to enclose a space. Derived so we don't have to hand-tag the

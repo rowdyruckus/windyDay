@@ -33,7 +33,8 @@ import {
   ShadeTree,
 } from '../data/sun';
 import { TimeSlider } from '../components/TimeSlider';
-import { radiusAtAge, MAX_YEARS } from '../data/growth';
+import { radiusAtAge, maturityFraction, MAX_YEARS } from '../data/growth';
+import { polygonAreaM2 } from '../data/geo';
 import { MapZoomControls } from '../components/MapZoomControls';
 import { GrowingPlant } from '../components/GrowingPlant';
 import { PlantMarker } from '../components/PlantMarker';
@@ -200,6 +201,22 @@ export function DesignScreen() {
     [sunMode, sunBoundary, shadeTrees, sunLat, doy]
   );
   const sunPos = solarPosition(sunLat, doy, sunHour);
+
+  // Grow mode: shrink markers of young plants, and estimate canopy coverage.
+  const bigDesign = placed.length > 60; // skip live marker resize on huge designs
+  const canopyCoverage = useMemo(() => {
+    if (!growMode) return 0;
+    const area = polygonAreaM2(sunBoundary);
+    if (area <= 0) return 0;
+    let covered = 0;
+    for (const pp of placed) {
+      const p = getPlant(pp.plantId);
+      if (!p) continue;
+      const r = radiusAtAge(p, years);
+      covered += Math.PI * r * r;
+    }
+    return Math.min(100, Math.round((covered / area) * 100));
+  }, [growMode, placed, years, sunBoundary]);
 
   // Build a shadow "streak" polygon for a tree at the current time.
   function shadowPolygon(pp: { latitude: number; longitude: number }, heightM: number, spreadM: number) {
@@ -499,6 +516,10 @@ export function DesignScreen() {
                 icon={plant.icon}
                 selected={isSel}
                 animateIn={animateIn}
+                sizeScale={
+                  growMode && !bigDesign ? Math.max(0.4, maturityFraction(plant, years)) : 1
+                }
+                liveResize={growMode && !bigDesign}
                 onPress={() => {
                   setSelectedStructure(null);
                   setSelected(pp.instanceId);
@@ -788,7 +809,8 @@ export function DesignScreen() {
               <Text style={styles.playIcon}>{growPlaying ? '⏸' : '▶︎'}</Text>
             </Pressable>
             <Text style={styles.sunTime}>
-              🌱 {years < 1 ? 'Just planted' : `Year ${Math.round(years)}`}
+              🌱 {years < 1 ? 'Just planted' : `Year ${Math.round(years)}`} ·{' '}
+              {canopyCoverage}% canopy
             </Text>
             <Pressable
               onPress={() => {
