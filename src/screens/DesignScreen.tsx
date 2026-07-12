@@ -33,6 +33,7 @@ import {
   ShadeTree,
 } from '../data/sun';
 import { TimeSlider } from '../components/TimeSlider';
+import { radiusAtAge, MAX_YEARS } from '../data/growth';
 import { MapZoomControls } from '../components/MapZoomControls';
 import { GrowingPlant } from '../components/GrowingPlant';
 import { PlantMarker } from '../components/PlantMarker';
@@ -69,6 +70,9 @@ export function DesignScreen() {
   const [sunMode, setSunMode] = useState(false);
   const [sunHour, setSunHour] = useState(13);
   const [playing, setPlaying] = useState(false);
+  const [growMode, setGrowMode] = useState(false);
+  const [years, setYears] = useState(MAX_YEARS);
+  const [growPlaying, setGrowPlaying] = useState(false);
   const hasLocation = site.latitude != null && site.longitude != null;
 
   // Sweep the sun across the day when playing.
@@ -79,6 +83,15 @@ export function DesignScreen() {
     }, 350);
     return () => clearInterval(id);
   }, [playing]);
+
+  // Sweep the years when growth playback is on.
+  React.useEffect(() => {
+    if (!growPlaying) return;
+    const id = setInterval(() => {
+      setYears((y) => (y >= MAX_YEARS ? 0 : Math.round((y + 0.5) * 10) / 10));
+    }, 220);
+    return () => clearInterval(id);
+  }, [growPlaying]);
 
   // Before the user sets their own site, center on a real example garden.
   const viewLat = site.latitude ?? DEMO_SITE.latitude;
@@ -472,10 +485,10 @@ export function DesignScreen() {
           const animateIn = knownInit.current && !knownIds.current.has(pp.instanceId);
           return (
             <React.Fragment key={pp.instanceId}>
-              {/* Mature canopy/spread footprint, true-to-scale in metres */}
+              {/* Canopy/spread footprint — mature, or grown to the chosen age */}
               <Circle
                 center={{ latitude: pp.latitude, longitude: pp.longitude }}
-                radius={Math.max(0.5, plant.matureSpreadM / 2)}
+                radius={growMode ? radiusAtAge(plant, years) : Math.max(0.5, plant.matureSpreadM / 2)}
                 strokeColor={layer.color}
                 strokeWidth={isSel ? 3 : 1.5}
                 fillColor={`${layer.color}44`}
@@ -560,11 +573,23 @@ export function DesignScreen() {
           style={[styles.ctrlBtn, sunMode && styles.ctrlBtnActive]}
           onPress={() => {
             setSunMode((m) => !m);
+            setGrowMode(false);
             setPlaying(false);
           }}
         >
           <Text style={styles.ctrlIcon}>☀️</Text>
           <Text style={styles.ctrlText}>Sun</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.ctrlBtn, growMode && styles.ctrlBtnActive]}
+          onPress={() => {
+            setGrowMode((m) => !m);
+            setSunMode(false);
+            setGrowPlaying(false);
+          }}
+        >
+          <Text style={styles.ctrlIcon}>🌱</Text>
+          <Text style={styles.ctrlText}>Grow</Text>
         </Pressable>
         <BasemapToggle style={{ width: 72 }} />
       </View>
@@ -574,7 +599,7 @@ export function DesignScreen() {
       <MapZoomControls mapRef={mapRef} style={[styles.zoom, { top: insets.top + 64 }]} />
 
       {/* Animated example plant growing on the aerial view (empty design) */}
-      {placed.length === 0 && !sunMode && (
+      {placed.length === 0 && !sunMode && !growMode && (
         <View pointerEvents="none" style={styles.growOverlay}>
           <GrowingPlant size={1} />
           <View style={styles.growTag}>
@@ -691,8 +716,8 @@ export function DesignScreen() {
         </View>
       )}
 
-      {/* Quick-add tray (hidden in Sun mode) */}
-      {!sunMode && (
+      {/* Quick-add tray (hidden in Sun / Grow mode) */}
+      {!sunMode && !growMode && (
         <View style={[styles.tray, { paddingBottom: insets.bottom + spacing.sm }]}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.trayRow}>
             {suited.map((p) => (
@@ -751,6 +776,36 @@ export function DesignScreen() {
           <Text style={styles.sunTip}>
             In hot summers, afternoon shade cuts heat stress and bolting for leafy
             greens — site the veggie beds where trees shade them after midday.
+          </Text>
+        </View>
+      )}
+
+      {/* Grow-through-time panel */}
+      {growMode && (
+        <View style={[styles.sunPanel, { paddingBottom: insets.bottom + spacing.sm }]}>
+          <View style={styles.sunRow}>
+            <Pressable onPress={() => setGrowPlaying((p) => !p)} style={styles.playBtn}>
+              <Text style={styles.playIcon}>{growPlaying ? '⏸' : '▶︎'}</Text>
+            </Pressable>
+            <Text style={styles.sunTime}>
+              🌱 {years < 1 ? 'Just planted' : `Year ${Math.round(years)}`}
+            </Text>
+            <Pressable
+              onPress={() => {
+                setGrowMode(false);
+                setGrowPlaying(false);
+              }}
+            >
+              <Text style={styles.sunClose}>Done</Text>
+            </Pressable>
+          </View>
+
+          <TimeSlider min={0} max={MAX_YEARS} value={years} onChange={setYears} />
+
+          <Text style={styles.sunTip}>
+            Drag to watch your forest fill in over the years — trees spreading into
+            their mature canopy while shrubs and ground covers knit together sooner.
+            Overlapping circles show where the canopy closes.
           </Text>
         </View>
       )}
