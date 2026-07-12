@@ -25,10 +25,9 @@ interface FlyerSpec {
   driftY: number;
 }
 
+// A single butterfly — the monarch — drifting across the scene.
 const BUTTERFLIES: FlyerSpec[] = [
-  { glyph: '🦋', startLeft: 0.15, top: 150, size: 22, duration: 6400, delay: 300, driftX: 60, driftY: -40 },
-  { glyph: '🦋', startLeft: 0.55, top: 190, size: 18, duration: 7200, delay: 1400, driftX: -50, driftY: -30 },
-  { glyph: '🦋', startLeft: 0.78, top: 165, size: 20, duration: 6800, delay: 900, driftX: -40, driftY: -50 },
+  { glyph: '🦋', startLeft: 0.3, top: 160, size: 24, duration: 7000, delay: 400, driftX: 70, driftY: -44 },
 ];
 
 function Butterfly({ spec }: { spec: FlyerSpec }) {

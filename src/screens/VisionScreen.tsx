@@ -86,10 +86,13 @@ export function VisionScreen() {
               real local species when we have them, emoji otherwise. */}
           <LivingScene
             height={320}
-            butterflyPhotos={(region?.butterflies ?? [])
-              .map((b) => b.photo)
-              .filter((p): p is string => !!p)
-              .slice(0, 3)}
+            butterflyPhotos={(() => {
+              const monarch = (region?.butterflies ?? []).find(
+                (b) =>
+                  /monarch/i.test(b.common ?? '') || /danaus plexippus/i.test(b.name)
+              );
+              return monarch?.photo ? [monarch.photo] : [];
+            })()}
           />
 
           {/* Hens pecking and wandering along the ground */}
@@ -97,9 +100,9 @@ export function VisionScreen() {
 
           <View style={[styles.heroContent, { paddingTop: insets.top + spacing.md }]}>
             <Text style={styles.dawnTag}>
-              {season.icon}  Let's Plant Paradise · Dawn · {season.label}
+              {season.icon}  Dawn · {season.label}
             </Text>
-            <Text style={styles.heroTitle}>{site.label}</Text>
+            <Text style={styles.heroTitle}>Let's Plant Paradise</Text>
             <Text style={styles.heroSub}>
               {hasLocation
                 ? zoneLabel(site.zone)
