@@ -23,6 +23,7 @@ export function PlantDetailScreen() {
   const site = useDesignStore((s) => s.site);
   const placed = useDesignStore((s) => s.placed);
   const placePlant = useDesignStore((s) => s.placePlant);
+  const placePlants = useDesignStore((s) => s.placePlants);
 
   const plant = getPlant(route.params.plantId);
   if (!plant) {
@@ -58,6 +59,35 @@ export function PlantDetailScreen() {
       { text: 'Keep browsing' },
       { text: 'Open design', onPress: () => navigation.navigate('Design') },
     ]);
+  }
+
+  function plantGuild() {
+    if (site.latitude == null || site.longitude == null) {
+      Alert.alert('Set your location first', 'Add your site on the Site tab first.');
+      return;
+    }
+    // Suited companions form a ring around the anchor plant.
+    const suitedCompanions = companions.filter((c) => suitability(c, site).ok);
+    const n = placed.length;
+    const cLat = site.latitude + 0.00008 * (1 + n) * Math.cos(n * 2.399963);
+    const cLng = site.longitude + 0.00008 * (1 + n) * Math.sin(n * 2.399963);
+    const items = [{ plantId: plant!.id, latitude: cLat, longitude: cLng }];
+    const ringM = Math.max(1.5, plant!.matureSpreadM * 0.5);
+    const dLat = ringM / 111320;
+    const dLng = ringM / (111320 * Math.cos((cLat * Math.PI) / 180));
+    suitedCompanions.forEach((c, i) => {
+      const a = (i / Math.max(1, suitedCompanions.length)) * Math.PI * 2;
+      items.push({ plantId: c.id, latitude: cLat + dLat * Math.sin(a), longitude: cLng + dLng * Math.cos(a) });
+    });
+    placePlants(items);
+    Alert.alert(
+      '🌿 Guild planted',
+      `${plant!.common} + ${items.length - 1} companion${items.length - 1 === 1 ? '' : 's'} placed as a guild.`,
+      [
+        { text: 'Keep browsing' },
+        { text: 'Open design', onPress: () => navigation.navigate('Design') },
+      ]
+    );
   }
 
   return (
@@ -182,6 +212,11 @@ export function PlantDetailScreen() {
       <Pressable style={styles.addBtn} onPress={addToDesign}>
         <Text style={styles.addText}>＋ Add to my design</Text>
       </Pressable>
+      {companions.length > 0 && (
+        <Pressable style={styles.guildBtn} onPress={plantGuild}>
+          <Text style={styles.guildText}>🌿 Plant this whole guild</Text>
+        </Pressable>
+      )}
       <View style={{ height: spacing.xl }} />
     </ScrollView>
   );
@@ -254,4 +289,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   addText: { color: '#0f1a12', fontWeight: '800', fontSize: 16 },
+  guildBtn: {
+    marginTop: spacing.sm,
+    backgroundColor: colors.surfaceAlt,
+    borderColor: colors.primary,
+    borderWidth: 1,
+    paddingVertical: spacing.md,
+    borderRadius: radius.md,
+    alignItems: 'center',
+  },
+  guildText: { color: colors.primary, fontWeight: '800', fontSize: 15 },
 });

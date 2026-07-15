@@ -6,6 +6,7 @@ import {
   FlatList,
   Pressable,
   ScrollView,
+  TextInput,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -31,13 +32,22 @@ export function PlantsScreen() {
   const [edibleOnly, setEdibleOnly] = useState(false);
   const [medicinalOnly, setMedicinalOnly] = useState(false);
   const [suitedOnly, setSuitedOnly] = useState(false);
+  const [query, setQuery] = useState('');
 
   const data = useMemo(() => {
+    const q = query.trim().toLowerCase();
     let list = PLANTS.filter((p) => {
       if (layer !== 'all' && p.layer !== layer) return false;
       if (edibleOnly && !p.edible) return false;
       if (medicinalOnly && !p.medicinal) return false;
       if (suitedOnly && !suitability(p, site).ok) return false;
+      if (
+        q &&
+        !p.common.toLowerCase().includes(q) &&
+        !p.scientific.toLowerCase().includes(q) &&
+        !p.uses.some((u) => u.toLowerCase().includes(q))
+      )
+        return false;
       return true;
     });
     // Suited plants first, then by layer order, then name.
@@ -60,6 +70,23 @@ export function PlantsScreen() {
         <Text style={styles.sub}>
           {zoneLabel(site.zone)} · {data.length} matches
         </Text>
+        <View style={styles.searchWrap}>
+          <Text style={styles.searchIcon}>🔍</Text>
+          <TextInput
+            style={styles.search}
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search name or use (e.g. tea, nut, shade)"
+            placeholderTextColor={colors.textMuted}
+            autoCorrect={false}
+            returnKeyType="search"
+          />
+          {query.length > 0 && (
+            <Pressable onPress={() => setQuery('')} hitSlop={8}>
+              <Text style={styles.searchClear}>✕</Text>
+            </Pressable>
+          )}
+        </View>
       </View>
 
       {/* Layer filter chips */}
@@ -168,6 +195,19 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: spacing.lg },
   h1: { color: colors.text, fontSize: 28, fontWeight: '800' },
   sub: { color: colors.textMuted, fontSize: 14, marginTop: 2 },
+  searchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  searchIcon: { fontSize: 14, marginRight: 6 },
+  search: { flex: 1, color: colors.text, fontSize: 15, paddingVertical: spacing.sm },
+  searchClear: { color: colors.textMuted, fontSize: 16, paddingHorizontal: 4 },
   chipScroll: { marginTop: spacing.md, maxHeight: 44 },
   chipRow: { paddingHorizontal: spacing.lg, gap: spacing.sm, alignItems: 'center' },
   chip: {

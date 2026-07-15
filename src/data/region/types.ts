@@ -41,6 +41,8 @@ export interface RegionProfile {
   annualMinTempC: number | null;
   /** Estimated frost-free growing-season length in days. */
   growingSeasonDays: number | null;
+  /** Average total annual precipitation in mm. */
+  annualPrecipMm: number | null;
 
   koppen: KoppenResult | null;
 

@@ -10,7 +10,7 @@ import {
 import MapView, { Marker, Circle, Polygon, Region } from 'react-native-maps';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, radius, spacing, LAYER_META } from '../theme';
+import { colors, radius, spacing, LAYER_META, LAYER_ORDER } from '../theme';
 import { useDesignStore } from '../store/useDesignStore';
 import { getPlant, PLANTS } from '../data/plants';
 import { suitability } from '../data/climate';
@@ -73,6 +73,7 @@ export function DesignScreen() {
   const [growMode, setGrowMode] = useState(false);
   const [years, setYears] = useState(MAX_YEARS);
   const [growPlaying, setGrowPlaying] = useState(false);
+  const [legendOpen, setLegendOpen] = useState(false);
   const hasLocation = site.latitude != null && site.longitude != null;
 
   // Sweep the sun across the day when playing.
@@ -625,6 +626,25 @@ export function DesignScreen() {
 
       <MapZoomControls mapRef={mapRef} style={[styles.zoom, { top: insets.top + 64 }]} />
 
+      {/* Layer legend */}
+      <Pressable
+        style={[styles.legendToggle, { top: insets.top + 172 }]}
+        onPress={() => setLegendOpen((o) => !o)}
+      >
+        <Text style={styles.legendToggleText}>🎨</Text>
+      </Pressable>
+      {legendOpen && (
+        <View style={[styles.legendCard, { top: insets.top + 172 }]}>
+          {LAYER_ORDER.map((l) => (
+            <View key={l} style={styles.legendRow2}>
+              <View style={[styles.legendSw, { backgroundColor: LAYER_META[l].color }]} />
+              <Text style={styles.legendLbl}>{LAYER_META[l].label}</Text>
+            </View>
+          ))}
+          <Text style={styles.legendNote}>◯ circle = mature spread</Text>
+        </View>
+      )}
+
       {/* Animated example plant growing on the aerial view (empty design) */}
       {placed.length === 0 && !sunMode && !growMode && (
         <View pointerEvents="none" style={styles.growOverlay}>
@@ -930,6 +950,32 @@ const styles = StyleSheet.create({
   },
   exampleTagText: { color: '#fff', fontSize: 10, fontWeight: '700' },
   zoom: { position: 'absolute', left: spacing.md },
+  legendToggle: {
+    position: 'absolute',
+    left: spacing.md,
+    width: 44,
+    height: 44,
+    borderRadius: radius.sm,
+    backgroundColor: 'rgba(15,26,18,0.85)',
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  legendToggleText: { fontSize: 18 },
+  legendCard: {
+    position: 'absolute',
+    left: spacing.md + 52,
+    backgroundColor: 'rgba(15,26,18,0.92)',
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.sm,
+  },
+  legendRow2: { flexDirection: 'row', alignItems: 'center', marginVertical: 2 },
+  legendSw: { width: 12, height: 12, borderRadius: 6, marginRight: 6 },
+  legendLbl: { color: '#dfeee0', fontSize: 11 },
+  legendNote: { color: colors.textMuted, fontSize: 10, marginTop: 4 },
   growOverlay: {
     position: 'absolute',
     top: '32%',

@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { colors, radius, spacing } from '../theme';
 import { useDesignStore, usePlacedPlantIds } from '../store/useDesignStore';
+import { getPlant } from '../data/plants';
 import { SpeciesLite } from '../data/region';
 import {
   MONTHS_LONG,
@@ -35,7 +36,24 @@ export function VisionScreen() {
   const navigation = useNavigation<any>();
   const site = useDesignStore((s) => s.site);
   const placedIds = usePlacedPlantIds();
+  const placedList = useDesignStore((s) => s.placed);
   const region = useDesignStore((s) => s.region);
+
+  const stats = useMemo(() => {
+    let edible = 0;
+    let medicinal = 0;
+    let nfix = 0;
+    const species = new Set<string>();
+    for (const pp of placedList) {
+      const p = getPlant(pp.plantId);
+      if (!p) continue;
+      species.add(p.id);
+      if (p.edible) edible += 1;
+      if (p.medicinal) medicinal += 1;
+      if (p.nitrogenFixer) nfix += 1;
+    }
+    return { total: placedList.length, species: species.size, edible, medicinal, nfix };
+  }, [placedList]);
   const resolveRegion = useDesignStore((s) => s.resolveRegion);
   const musicMuted = useDesignStore((s) => s.musicMuted);
   const toggleMusic = useDesignStore((s) => s.toggleMusic);
@@ -169,6 +187,20 @@ export function VisionScreen() {
           )}
         </View>
 
+        {/* ---- Your paradise so far ---- */}
+        {stats.total > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.kicker}>YOUR PARADISE SO FAR</Text>
+            <View style={styles.statRow}>
+              <StatTile n={stats.total} label="plantings" />
+              <StatTile n={stats.species} label="species" />
+              <StatTile n={stats.edible} label="edible" />
+              <StatTile n={stats.medicinal} label="medicinal" />
+              <StatTile n={stats.nfix} label="N-fixers" />
+            </View>
+          </View>
+        )}
+
         {/* ---- Real local life ---- */}
         {region && (region.butterflies.length > 0 || region.birds.length > 0) && (
           <View style={styles.section}>
@@ -214,6 +246,15 @@ export function VisionScreen() {
           is now."
         </Text>
       </ScrollView>
+    </View>
+  );
+}
+
+function StatTile({ n, label }: { n: number; label: string }) {
+  return (
+    <View style={styles.statTile}>
+      <Text style={styles.statNum}>{n}</Text>
+      <Text style={styles.statLbl}>{label}</Text>
     </View>
   );
 }
@@ -352,6 +393,18 @@ const styles = StyleSheet.create({
   },
   fruitIcon: { fontSize: 18, marginRight: 6 },
   fruitName: { color: colors.text, fontWeight: '600', fontSize: 13 },
+  statRow: { flexDirection: 'row', gap: spacing.sm },
+  statTile: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+  },
+  statNum: { color: colors.primary, fontSize: 22, fontWeight: '800' },
+  statLbl: { color: colors.textMuted, fontSize: 11, marginTop: 2 },
   stripTitle: { color: colors.textMuted, fontSize: 13, fontWeight: '700', marginBottom: 4 },
   speciesCard: { width: 88 },
   speciesPhoto: {

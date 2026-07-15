@@ -251,6 +251,9 @@ export function SiteScreen() {
                   value={`${regionInfo.growingSeasonDays} days`}
                 />
               )}
+              {regionInfo.annualPrecipMm != null && (
+                <Stat label="Rainfall" value={`${regionInfo.annualPrecipMm} mm`} />
+              )}
               <Stat
                 label="Zone source"
                 value={
