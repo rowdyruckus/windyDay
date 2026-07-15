@@ -11,6 +11,7 @@ import {
   isProfileFresh,
 } from '../data/region';
 import { STARTUP_SITE } from '../data/demo';
+import { Goal } from '../data/goals';
 
 export type RegionStatus = 'idle' | 'loading' | 'ready' | 'error';
 export type Basemap = 'apple' | 'esri';
@@ -34,6 +35,9 @@ interface DesignState {
   basemap: Basemap;
   /** Whether the startup music is muted. */
   musicMuted: boolean;
+  /** First-run onboarding completed, and the user's chosen goals. */
+  onboarded: boolean;
+  goals: Goal[];
   hydrated: boolean;
 
   setLocation: (latitude: number, longitude: number, zone: number) => void;
@@ -69,6 +73,8 @@ interface DesignState {
   setBasemap: (basemap: Basemap) => void;
 
   toggleMusic: () => void;
+
+  completeOnboarding: (goals: Goal[]) => void;
 
   /** Clear the saved site & region so the example garden shows again. */
   clearSite: () => void;
@@ -109,6 +115,8 @@ export const useDesignStore = create<DesignState>()(
       regionStatus: 'idle',
       basemap: 'apple',
       musicMuted: false,
+      onboarded: false,
+      goals: [],
       hydrated: false,
 
       setLocation: (latitude, longitude, zone) =>
@@ -244,6 +252,8 @@ export const useDesignStore = create<DesignState>()(
 
       toggleMusic: () => set((s) => ({ musicMuted: !s.musicMuted })),
 
+      completeOnboarding: (goals) => set(() => ({ onboarded: true, goals })),
+
       clearSite: () =>
         set(() => ({ site: initialSite, region: null, regionStatus: 'idle' })),
 
@@ -263,6 +273,8 @@ export const useDesignStore = create<DesignState>()(
         region: s.region,
         basemap: s.basemap,
         musicMuted: s.musicMuted,
+        onboarded: s.onboarded,
+        goals: s.goals,
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHydrated();

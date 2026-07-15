@@ -15,6 +15,7 @@ import { colors, radius, spacing } from '../theme';
 import { useDesignStore, usePlacedPlantIds } from '../store/useDesignStore';
 import { getPlant } from '../data/plants';
 import { SpeciesLite } from '../data/region';
+import { useCurrentWeather } from '../data/region/weather';
 import {
   MONTHS_LONG,
   peakBountyMonth,
@@ -76,6 +77,7 @@ export function VisionScreen() {
   const resolveRegion = useDesignStore((s) => s.resolveRegion);
   const musicMuted = useDesignStore((s) => s.musicMuted);
   const toggleMusic = useDesignStore((s) => s.toggleMusic);
+  const weather = useCurrentWeather(site.latitude, site.longitude);
   const sound = useSoundscape();
 
   // Make sure region life is loaded even if the user lands here first.
@@ -145,6 +147,12 @@ export function VisionScreen() {
                 ? zoneLabel(site.zone)
                 : 'Set your location to grow your paradise'}
             </Text>
+
+            {weather && (
+              <Text style={styles.weatherChip}>
+                {weather.icon} {Math.round((weather.tempC * 9) / 5 + 32)}°F · {weather.label}
+              </Text>
+            )}
 
             <Pressable
               onPress={() => {
@@ -367,6 +375,14 @@ const styles = StyleSheet.create({
     color: '#f2fff0',
     fontSize: 15,
     marginTop: 2,
+    textShadowColor: 'rgba(0,0,0,0.4)',
+    textShadowRadius: 6,
+  },
+  weatherChip: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 6,
     textShadowColor: 'rgba(0,0,0,0.4)',
     textShadowRadius: 6,
   },

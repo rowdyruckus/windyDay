@@ -16,6 +16,7 @@ import { suitability } from '../data/climate';
 import { zoneLabel } from '../data/climate';
 import { useDesignStore } from '../store/useDesignStore';
 import { nativePlantGenera } from '../data/region';
+import { goalScore } from '../data/goals';
 import { PlantCard } from '../components/PlantCard';
 import { ForestLayer } from '../types';
 
@@ -26,6 +27,7 @@ export function PlantsScreen() {
   const navigation = useNavigation<any>();
   const site = useDesignStore((s) => s.site);
   const region = useDesignStore((s) => s.region);
+  const goals = useDesignStore((s) => s.goals);
   const nativeGenera = useMemo(() => nativePlantGenera(region), [region]);
 
   const [layer, setLayer] = useState<LayerFilter>('all');
@@ -55,13 +57,19 @@ export function PlantsScreen() {
       const sa = suitability(a, site).ok ? 0 : 1;
       const sb = suitability(b, site).ok ? 0 : 1;
       if (sa !== sb) return sa - sb;
+      // Plants matching the user's goals rank higher.
+      if (goals.length) {
+        const ga = goalScore(a, goals);
+        const gb = goalScore(b, goals);
+        if (ga !== gb) return gb - ga;
+      }
       const la = LAYER_META[a.layer].order;
       const lb = LAYER_META[b.layer].order;
       if (la !== lb) return la - lb;
       return a.common.localeCompare(b.common);
     });
     return list;
-  }, [layer, edibleOnly, medicinalOnly, suitedOnly, site]);
+  }, [layer, edibleOnly, medicinalOnly, suitedOnly, site, query, goals]);
 
   return (
     <View style={[styles.root, { paddingTop: insets.top + spacing.md }]}>
