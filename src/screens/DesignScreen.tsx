@@ -6,6 +6,7 @@ import {
   Pressable,
   ScrollView,
   Alert,
+  Modal,
 } from 'react-native';
 import MapView, { Marker, Circle, Polygon, Region } from 'react-native-maps';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -53,6 +54,7 @@ export function DesignScreen() {
   const placePlant = useDesignStore((s) => s.placePlant);
   const placePlants = useDesignStore((s) => s.placePlants);
   const clearPlants = useDesignStore((s) => s.clearPlants);
+  const removePlantsOfType = useDesignStore((s) => s.removePlantsOfType);
   const clearDesign = useDesignStore((s) => s.clearDesign);
   const boundary = useDesignStore((s) => s.boundary);
   const setBoundary = useDesignStore((s) => s.setBoundary);
@@ -74,6 +76,8 @@ export function DesignScreen() {
   const [years, setYears] = useState(MAX_YEARS);
   const [growPlaying, setGrowPlaying] = useState(false);
   const [legendOpen, setLegendOpen] = useState(false);
+  const [drawMode, setDrawMode] = useState(false);
+  const [listOpen, setListOpen] = useState(false);
   const hasLocation = site.latitude != null && site.longitude != null;
 
   // Sweep the sun across the day when playing.
@@ -336,6 +340,38 @@ export function DesignScreen() {
   const selectedPlant = selectedPlaced ? getPlant(selectedPlaced.plantId) : null;
   const selectedStruct = structures.find((s) => s.instanceId === selectedStructure);
 
+  // Companions of the selected plant, to highlight on the map.
+  const companionHl = useMemo(() => {
+    const set = new Set<string>();
+    if (!selectedPlant) return set;
+    selectedPlant.companions.forEach((id) => set.add(id));
+    PLANTS.forEach((p) => {
+      if (p.companions.includes(selectedPlant.id)) set.add(p.id);
+    });
+    return set;
+  }, [selectedPlant]);
+
+  // Grouped plantings for the list panel.
+  const grouped = useMemo(() => {
+    const map = new Map<string, number>();
+    placed.forEach((p) => map.set(p.plantId, (map.get(p.plantId) ?? 0) + 1));
+    return Array.from(map.entries())
+      .map(([plantId, count]) => ({ plant: getPlant(plantId), count, plantId }))
+      .filter((g) => g.plant)
+      .sort((a, b) => LAYER_META[a.plant!.layer].order - LAYER_META[b.plant!.layer].order);
+  }, [placed]);
+
+  function centerOnPlant(plantId: string) {
+    const first = placed.find((p) => p.plantId === plantId);
+    if (first) {
+      mapRef.current?.animateCamera(
+        { center: { latitude: first.latitude, longitude: first.longitude }, heading: 270, zoom: 18 },
+        { duration: 600 }
+      );
+    }
+    setListOpen(false);
+  }
+
   function quickAdd(plantId: string) {
     placePlant(plantId, centerRef.current.latitude, centerRef.current.longitude);
   }
@@ -404,7 +440,13 @@ export function DesignScreen() {
         mapType="satellite"
         initialRegion={initialRegion}
         onMapReady={onMapReady}
-        onPress={clearSelection}
+        onPress={(e) => {
+          if (drawMode) {
+            setBoundary([...boundary, e.nativeEvent.coordinate]);
+          } else {
+            clearSelection();
+          }
+        }}
         onRegionChangeComplete={(r) => {
           centerRef.current = { latitude: r.latitude, longitude: r.longitude };
         }}
@@ -505,6 +547,7 @@ export function DesignScreen() {
           if (!plant) return null;
           const layer = LAYER_META[plant.layer];
           const isSel = pp.instanceId === selected;
+          const isCompanion = !!selected && !isSel && companionHl.has(pp.plantId);
           // Grow in only if this planting is new since we first loaded.
           const animateIn = knownInit.current && !knownIds.current.has(pp.instanceId);
           return (
@@ -513,9 +556,9 @@ export function DesignScreen() {
               <Circle
                 center={{ latitude: pp.latitude, longitude: pp.longitude }}
                 radius={growMode ? radiusAtAge(plant, years) : Math.max(0.5, plant.matureSpreadM / 2)}
-                strokeColor={layer.color}
-                strokeWidth={isSel ? 3 : 1.5}
-                fillColor={`${layer.color}44`}
+                strokeColor={isSel || isCompanion ? colors.accent : layer.color}
+                strokeWidth={isSel || isCompanion ? 3 : 1.5}
+                fillColor={isCompanion ? `${colors.accent}33` : `${layer.color}44`}
               />
               <PlantMarker
                 latitude={pp.latitude}
@@ -552,6 +595,11 @@ export function DesignScreen() {
               : 'Example garden — explore, then add your own land'}
           </Text>
         </View>
+        {placed.length > 0 && (
+          <Pressable onPress={() => setListOpen(true)} style={{ marginRight: spacing.md }}>
+            <Text style={[styles.clear, { color: '#fff' }]}>📋 List</Text>
+          </Pressable>
+        )}
         {(placed.length > 0 || structures.length > 0) && (
           <Pressable
             onPress={() =>
@@ -585,6 +633,17 @@ export function DesignScreen() {
         >
           <Text style={styles.ctrlIcon}>🏠</Text>
           <Text style={styles.ctrlText}>{boundary.length > 0 ? 'Clear edge' : 'Property'}</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.ctrlBtn, drawMode && styles.ctrlBtnActive]}
+          onPress={() => {
+            const next = !drawMode;
+            setDrawMode(next);
+            if (next && boundary.length > 0) clearBoundary();
+          }}
+        >
+          <Text style={styles.ctrlIcon}>✏️</Text>
+          <Text style={styles.ctrlText}>Draw</Text>
         </Pressable>
         <Pressable
           style={[styles.ctrlBtn, boundary.length < 3 && styles.ctrlBtnDisabled]}
@@ -868,6 +927,59 @@ export function DesignScreen() {
           </Text>
         </View>
       )}
+
+      {/* Draw-your-own boundary banner */}
+      {drawMode && (
+        <View style={[styles.drawBanner, { top: insets.top + 96 }]}>
+          <Text style={styles.drawText}>
+            ✏️ Tap the map to trace your property · {boundary.length} point
+            {boundary.length === 1 ? '' : 's'}
+          </Text>
+          <View style={styles.drawRow}>
+            <Pressable style={styles.drawBtn} onPress={() => setBoundary(boundary.slice(0, -1))}>
+              <Text style={styles.drawBtnText}>Undo</Text>
+            </Pressable>
+            <Pressable style={styles.drawBtn} onPress={clearBoundary}>
+              <Text style={styles.drawBtnText}>Clear</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.drawBtn, styles.drawBtnPrimary]}
+              onPress={() => setDrawMode(false)}
+            >
+              <Text style={[styles.drawBtnText, { color: '#0f1a12' }]}>Done</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
+
+      {/* My plantings list */}
+      <Modal visible={listOpen} animationType="slide" transparent onRequestClose={() => setListOpen(false)}>
+        <Pressable style={styles.modalBackdrop} onPress={() => setListOpen(false)}>
+          <Pressable style={[styles.modalCard, { paddingBottom: insets.bottom + spacing.md }]} onPress={() => {}}>
+            <Text style={styles.modalTitle}>My plantings · {placed.length}</Text>
+            <ScrollView style={{ maxHeight: 400 }}>
+              {grouped.map((g) => (
+                <View key={g.plantId} style={styles.listRow}>
+                  <Text style={styles.listIcon}>{g.plant!.icon}</Text>
+                  <Pressable style={{ flex: 1 }} onPress={() => centerOnPlant(g.plantId)}>
+                    <Text style={styles.listName}>{g.plant!.common}</Text>
+                    <Text style={styles.listLayer}>
+                      {LAYER_META[g.plant!.layer].label} · ×{g.count}
+                    </Text>
+                  </Pressable>
+                  <Pressable onPress={() => removePlantsOfType(g.plantId)} hitSlop={8}>
+                    <Text style={styles.listRemove}>Remove</Text>
+                  </Pressable>
+                </View>
+              ))}
+              {grouped.length === 0 && <Text style={styles.listEmpty}>No plants yet.</Text>}
+            </ScrollView>
+            <Pressable style={styles.listClose} onPress={() => setListOpen(false)}>
+              <Text style={styles.listCloseText}>Close</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -976,6 +1088,55 @@ const styles = StyleSheet.create({
   legendSw: { width: 12, height: 12, borderRadius: 6, marginRight: 6 },
   legendLbl: { color: '#dfeee0', fontSize: 11 },
   legendNote: { color: colors.textMuted, fontSize: 10, marginTop: 4 },
+  drawBanner: {
+    position: 'absolute',
+    left: spacing.lg,
+    right: spacing.lg,
+    backgroundColor: 'rgba(15,26,18,0.94)',
+    borderColor: colors.accent,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+  },
+  drawText: { color: '#fff', fontSize: 13, fontWeight: '600' },
+  drawRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
+  drawBtn: {
+    flex: 1,
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: radius.sm,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+  },
+  drawBtnPrimary: { backgroundColor: colors.primary },
+  drawBtnText: { color: colors.text, fontWeight: '700', fontSize: 13 },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalCard: {
+    backgroundColor: colors.bg,
+    borderTopLeftRadius: radius.lg,
+    borderTopRightRadius: radius.lg,
+    padding: spacing.lg,
+  },
+  modalTitle: { color: colors.text, fontSize: 18, fontWeight: '800', marginBottom: spacing.md },
+  listRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    borderBottomColor: colors.border,
+    borderBottomWidth: 1,
+  },
+  listIcon: { fontSize: 22, marginRight: spacing.md },
+  listName: { color: colors.text, fontSize: 15, fontWeight: '600' },
+  listLayer: { color: colors.textMuted, fontSize: 12 },
+  listRemove: { color: colors.danger, fontWeight: '700', fontSize: 13 },
+  listEmpty: { color: colors.textMuted, textAlign: 'center', padding: spacing.lg },
+  listClose: {
+    marginTop: spacing.md,
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: radius.md,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+  },
+  listCloseText: { color: colors.text, fontWeight: '700' },
   growOverlay: {
     position: 'absolute',
     top: '32%',

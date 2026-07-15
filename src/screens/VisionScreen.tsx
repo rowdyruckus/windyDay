@@ -6,6 +6,7 @@ import {
   ScrollView,
   Pressable,
   Image,
+  Share,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -52,8 +53,26 @@ export function VisionScreen() {
       if (p.medicinal) medicinal += 1;
       if (p.nitrogenFixer) nfix += 1;
     }
-    return { total: placedList.length, species: species.size, edible, medicinal, nfix };
+    const counts: Record<string, number> = {};
+    for (const pp of placedList) counts[pp.plantId] = (counts[pp.plantId] ?? 0) + 1;
+    const top = Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 4)
+      .map(([id]) => getPlant(id)?.common)
+      .filter((n): n is string => !!n);
+    return { total: placedList.length, species: species.size, edible, medicinal, nfix, top };
   }, [placedList]);
+
+  function shareParadise() {
+    const lines = [
+      "🌱 My food forest — Let's Plant Paradise",
+      `${region?.koppen ? region.koppen.label + ' · ' : ''}${zoneLabel(site.zone)}`,
+      `${stats.total} plantings · ${stats.species} species · ${stats.edible} edible · ${stats.medicinal} medicinal · ${stats.nfix} nitrogen-fixers`,
+      stats.top.length ? `Featuring: ${stats.top.join(', ')}` : '',
+      'Designing my paradise with Let\'s Plant Paradise 🌳',
+    ].filter(Boolean);
+    Share.share({ message: lines.join('\n') }).catch(() => {});
+  }
   const resolveRegion = useDesignStore((s) => s.resolveRegion);
   const musicMuted = useDesignStore((s) => s.musicMuted);
   const toggleMusic = useDesignStore((s) => s.toggleMusic);
@@ -198,6 +217,9 @@ export function VisionScreen() {
               <StatTile n={stats.medicinal} label="medicinal" />
               <StatTile n={stats.nfix} label="N-fixers" />
             </View>
+            <Pressable style={styles.shareBtn} onPress={shareParadise}>
+              <Text style={styles.shareBtnText}>📤 Share my paradise</Text>
+            </Pressable>
           </View>
         )}
 
@@ -405,6 +427,16 @@ const styles = StyleSheet.create({
   },
   statNum: { color: colors.primary, fontSize: 22, fontWeight: '800' },
   statLbl: { color: colors.textMuted, fontSize: 11, marginTop: 2 },
+  shareBtn: {
+    marginTop: spacing.md,
+    backgroundColor: colors.surfaceAlt,
+    borderColor: colors.primary,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+  },
+  shareBtnText: { color: colors.primary, fontWeight: '700', fontSize: 14 },
   stripTitle: { color: colors.textMuted, fontSize: 13, fontWeight: '700', marginBottom: 4 },
   speciesCard: { width: 88 },
   speciesPhoto: {

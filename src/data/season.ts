@@ -31,6 +31,20 @@ export const MONTHS_LONG = [
   'December',
 ];
 
+/** Convert a day-of-year (1-366) to a short "Mon D" label. */
+export function doyToLabel(doy: number): string {
+  const cum = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
+  let m = 11;
+  for (let i = 0; i < 12; i++) {
+    if (doy <= cum[i] + (i === 1 ? 28 : [0, 2, 4, 6, 7, 9, 11].includes(i) ? 31 : 30)) {
+      m = i;
+      break;
+    }
+  }
+  const day = Math.max(1, doy - cum[m]);
+  return `${MONTHS[m]} ${day}`;
+}
+
 export function seasonForMonth(month: number): Season {
   // month is 1-12 (Northern Hemisphere)
   if (month >= 3 && month <= 5) return 'spring';

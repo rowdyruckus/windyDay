@@ -84,6 +84,8 @@ export async function resolveRegionProfile(
     annualPrecipMm: climate
       ? Math.round(climate.monthlyPrecipMm.reduce((a, b) => a + b, 0))
       : null,
+    lastSpringFrostDoy: climate?.lastSpringFrostDoy ?? null,
+    firstFallFrostDoy: climate?.firstFallFrostDoy ?? null,
     koppen,
     butterflies,
     birds,

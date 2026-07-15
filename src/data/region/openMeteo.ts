@@ -14,6 +14,9 @@ export interface ClimateNormals {
   monthlyTempC: number[];
   /** Mean monthly precipitation mm, index 0 = January. */
   monthlyPrecipMm: number[];
+  /** Average day-of-year of the last spring / first fall frost (or null). */
+  lastSpringFrostDoy: number | null;
+  firstFallFrostDoy: number | null;
   zone: number;
   zoneHalf: 'a' | 'b';
 }
@@ -82,9 +85,15 @@ export async function fetchClimateNormals(
   const precip: (number | null)[] = json?.daily?.precipitation_sum ?? [];
   if (times.length === 0 || tmin.length !== times.length) return null;
 
+  // Cumulative days before each month (non-leap; fine for averages).
+  const CUM = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
+
   // Per-year extreme minimum, and frost-free day count.
   const yearMin: Record<string, number> = {};
   const yearFrostFree: Record<string, number> = {};
+  // Per-year last spring frost (max DOY before midyear) & first fall frost.
+  const yearSpringFrost: Record<string, number> = {};
+  const yearFallFrost: Record<string, number> = {};
   // Monthly accumulators for climatology.
   const mTempSum = new Array(12).fill(0);
   const mTempCount = new Array(12).fill(0);
@@ -95,10 +104,20 @@ export async function fetchClimateNormals(
     const year = t.slice(0, 4);
     const month = parseInt(t.slice(5, 7), 10) - 1;
 
+    const day = parseInt(t.slice(8, 10), 10);
+    const doy = CUM[month] + day;
     const lo = tmin[i];
     if (lo != null && Number.isFinite(lo)) {
       if (yearMin[year] == null || lo < yearMin[year]) yearMin[year] = lo;
       if (lo > 0) yearFrostFree[year] = (yearFrostFree[year] ?? 0) + 1;
+      if (lo <= 0) {
+        if (doy < 183) {
+          if (yearSpringFrost[year] == null || doy > yearSpringFrost[year])
+            yearSpringFrost[year] = doy;
+        } else if (yearFallFrost[year] == null || doy < yearFallFrost[year]) {
+          yearFallFrost[year] = doy;
+        }
+      }
     }
     const me = tmean[i];
     if (me != null && Number.isFinite(me)) {
@@ -138,11 +157,19 @@ export async function fetchClimateNormals(
 
   const { zone, half } = usdaZoneFromMinC(annualMinTempC);
 
+  const springVals = Object.values(yearSpringFrost);
+  const fallVals = Object.values(yearFallFrost);
+  const avg = (a: number[]) => Math.round(a.reduce((x, y) => x + y, 0) / a.length);
+  const lastSpringFrostDoy = springVals.length ? avg(springVals) : null;
+  const firstFallFrostDoy = fallVals.length ? avg(fallVals) : null;
+
   return {
     annualMinTempC,
     growingSeasonDays,
     monthlyTempC,
     monthlyPrecipMm,
+    lastSpringFrostDoy,
+    firstFallFrostDoy,
     zone,
     zoneHalf: half,
   };

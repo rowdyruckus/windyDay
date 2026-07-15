@@ -11,6 +11,7 @@ import {
   peakBountyMonth,
   seasonForMonth,
   SEASON_META,
+  doyToLabel,
 } from '../data/season';
 import { Plant } from '../types';
 
@@ -18,6 +19,7 @@ export function TimelineScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const site = useDesignStore((s) => s.site);
+  const region = useDesignStore((s) => s.region);
   const placedIds = usePlacedPlantIds();
 
   // Base the calendar on what's planted; if the design is empty, preview with
@@ -57,6 +59,20 @@ export function TimelineScreen() {
           ? 'A preview using plants suited to your site. Add plants to your design to make it yours.'
           : 'When to plant, tend and harvest across the year.'}
       </Text>
+
+      {region?.lastSpringFrostDoy != null && region?.firstFallFrostDoy != null && (
+        <View style={styles.frostBanner}>
+          <Text style={styles.frostTitle}>❄️ Frost-free window</Text>
+          <Text style={styles.frostDates}>
+            ~{doyToLabel(region.lastSpringFrostDoy)} → {doyToLabel(region.firstFallFrostDoy)}
+            {region.growingSeasonDays != null ? `  ·  ${region.growingSeasonDays} days` : ''}
+          </Text>
+          <Text style={styles.frostNote}>
+            Wait until after the last spring frost to plant tender crops; harvest
+            the tender ones before the first fall frost.
+          </Text>
+        </View>
+      )}
 
       {isPreview && (
         <Pressable style={styles.previewBtn} onPress={() => navigation.navigate('Plants')}>
@@ -148,6 +164,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   previewBtnText: { color: colors.primary, fontWeight: '700' },
+  frostBanner: {
+    backgroundColor: 'rgba(74,163,217,0.12)',
+    borderColor: '#4aa3d9',
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  frostTitle: { color: '#8fd0f0', fontWeight: '800', fontSize: 14 },
+  frostDates: { color: colors.text, fontSize: 16, fontWeight: '700', marginTop: 4 },
+  frostNote: { color: colors.textMuted, fontSize: 12, marginTop: spacing.sm, lineHeight: 17 },
   monthCard: {
     backgroundColor: colors.surface,
     borderRadius: radius.md,

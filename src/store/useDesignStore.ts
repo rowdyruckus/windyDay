@@ -47,6 +47,7 @@ interface DesignState {
   ) => void;
   movePlant: (instanceId: string, latitude: number, longitude: number) => void;
   removePlant: (instanceId: string) => void;
+  removePlantsOfType: (plantId: string) => void;
   clearPlants: () => void;
   clearDesign: () => void;
 
@@ -161,6 +162,9 @@ export const useDesignStore = create<DesignState>()(
         set((s) => ({
           placed: s.placed.filter((p) => p.instanceId !== instanceId),
         })),
+
+      removePlantsOfType: (plantId) =>
+        set((s) => ({ placed: s.placed.filter((p) => p.plantId !== plantId) })),
 
       clearPlants: () => set(() => ({ placed: [] })),
 

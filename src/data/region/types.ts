@@ -43,6 +43,9 @@ export interface RegionProfile {
   growingSeasonDays: number | null;
   /** Average total annual precipitation in mm. */
   annualPrecipMm: number | null;
+  /** Average day-of-year of last spring / first fall frost. */
+  lastSpringFrostDoy: number | null;
+  firstFallFrostDoy: number | null;
 
   koppen: KoppenResult | null;
 
