@@ -33,8 +33,7 @@ import {
   ShadeTree,
 } from '../data/sun';
 import { TimeSlider } from '../components/TimeSlider';
-import { radiusAtAge, maturityFraction, MAX_YEARS } from '../data/growth';
-import { polygonAreaM2 } from '../data/geo';
+import { radiusAtAge, maturityFraction, canopyCoveragePercent, MAX_YEARS } from '../data/growth';
 import { MapZoomControls } from '../components/MapZoomControls';
 import { GrowingPlant } from '../components/GrowingPlant';
 import { PlantMarker } from '../components/PlantMarker';
@@ -206,17 +205,24 @@ export function DesignScreen() {
   const bigDesign = placed.length > 60; // skip live marker resize on huge designs
   const canopyCoverage = useMemo(() => {
     if (!growMode) return 0;
-    const area = polygonAreaM2(sunBoundary);
-    if (area <= 0) return 0;
-    let covered = 0;
-    for (const pp of placed) {
-      const p = getPlant(pp.plantId);
-      if (!p) continue;
-      const r = radiusAtAge(p, years);
-      covered += Math.PI * r * r;
-    }
-    return Math.min(100, Math.round((covered / area) * 100));
+    const circles = placed
+      .map((pp) => {
+        const p = getPlant(pp.plantId);
+        return p
+          ? { latitude: pp.latitude, longitude: pp.longitude, radiusM: radiusAtAge(p, years) }
+          : null;
+      })
+      .filter((c): c is { latitude: number; longitude: number; radiusM: number } => c !== null);
+    return canopyCoveragePercent(sunBoundary, circles);
   }, [growMode, placed, years, sunBoundary]);
+
+  const coverageColor = (pct: number) => {
+    const t = Math.min(1, pct / 100);
+    const a = [224, 169, 74]; // amber
+    const b = [91, 191, 106]; // green
+    const c = a.map((v, i) => Math.round(v + (b[i] - v) * t));
+    return `rgb(${c[0]},${c[1]},${c[2]})`;
+  };
 
   // Build a shadow "streak" polygon for a tree at the current time.
   function shadowPolygon(pp: { latitude: number; longitude: number }, heightM: number, spreadM: number) {
@@ -810,7 +816,9 @@ export function DesignScreen() {
             </Pressable>
             <Text style={styles.sunTime}>
               🌱 {years < 1 ? 'Just planted' : `Year ${Math.round(years)}`} ·{' '}
-              {canopyCoverage}% canopy
+              <Text style={{ color: coverageColor(canopyCoverage) }}>
+                {canopyCoverage}% canopy
+              </Text>
             </Text>
             <Pressable
               onPress={() => {
@@ -824,10 +832,19 @@ export function DesignScreen() {
 
           <TimeSlider min={0} max={MAX_YEARS} value={years} onChange={setYears} />
 
+          <View style={styles.coverBar}>
+            <View
+              style={[
+                styles.coverFill,
+                { width: `${canopyCoverage}%`, backgroundColor: coverageColor(canopyCoverage) },
+              ]}
+            />
+          </View>
+
           <Text style={styles.sunTip}>
             Drag to watch your forest fill in over the years — trees spreading into
             their mature canopy while shrubs and ground covers knit together sooner.
-            Overlapping circles show where the canopy closes.
+            The bar shows how much of your land the canopy shades.
           </Text>
         </View>
       )}
@@ -1090,6 +1107,14 @@ const styles = StyleSheet.create({
   quote: { color: '#eef4ee', fontStyle: 'italic', fontSize: 12, marginTop: spacing.md, lineHeight: 17 },
   quoteAuthor: { color: colors.textMuted, fontSize: 11, marginTop: 2, textAlign: 'right' },
   sunTip: { color: colors.textMuted, fontSize: 11, marginTop: spacing.sm, lineHeight: 16 },
+  coverBar: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.surfaceAlt,
+    marginTop: spacing.sm,
+    overflow: 'hidden',
+  },
+  coverFill: { height: 8, borderRadius: 4 },
   demoBanner: {
     position: 'absolute',
     left: spacing.lg,
