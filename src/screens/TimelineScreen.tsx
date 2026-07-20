@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -48,6 +48,46 @@ export function TimelineScreen() {
     });
   }, [plants]);
 
+  const nowMonth = new Date().getMonth() + 1;
+  const [doneTasks, setDoneTasks] = useState<Set<string>>(new Set());
+
+  // Actionable jobs for the current calendar month, built from the design.
+  const thisMonthTasks = useMemo(() => {
+    const m = months[nowMonth - 1];
+    const tasks: { key: string; icon: string; text: string; plantId?: string }[] = [];
+    m.toPlant.forEach((p) =>
+      tasks.push({ key: `plant-${p.id}`, icon: p.icon, text: `Plant ${p.common}`, plantId: p.id })
+    );
+    m.toHarvest.forEach((p) =>
+      tasks.push({ key: `harvest-${p.id}`, icon: p.icon, text: `Harvest ${p.common}`, plantId: p.id })
+    );
+    // Chop-and-drop nitrogen fixers / dynamic accumulators in the growing season.
+    if (nowMonth >= 5 && nowMonth <= 8) {
+      plants
+        .filter((p) => p.nitrogenFixer || p.id === 'comfrey')
+        .forEach((p) =>
+          tasks.push({
+            key: `chop-${p.id}`,
+            icon: '✂️',
+            text: `Chop-and-drop ${p.common} for mulch`,
+            plantId: p.id,
+          })
+        );
+    }
+    return tasks;
+  }, [months, nowMonth, plants]);
+
+  const doneCount = thisMonthTasks.filter((t) => doneTasks.has(t.key)).length;
+
+  function toggleTask(key: string) {
+    setDoneTasks((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
   return (
     <ScrollView
       style={styles.root}
@@ -71,6 +111,41 @@ export function TimelineScreen() {
             Wait until after the last spring frost to plant tender crops; harvest
             the tender ones before the first fall frost.
           </Text>
+        </View>
+      )}
+
+      {thisMonthTasks.length > 0 && (
+        <View style={styles.tasksCard}>
+          <View style={styles.tasksHead}>
+            <Text style={styles.tasksTitle}>✅ This month · {MONTHS_LONG[nowMonth - 1]}</Text>
+            <Text style={styles.tasksCount}>
+              {doneCount}/{thisMonthTasks.length}
+            </Text>
+          </View>
+          {thisMonthTasks.map((t) => {
+            const done = doneTasks.has(t.key);
+            return (
+              <Pressable
+                key={t.key}
+                style={styles.taskRow}
+                onPress={() => toggleTask(t.key)}
+                onLongPress={() =>
+                  t.plantId && navigation.navigate('PlantDetail', { plantId: t.plantId })
+                }
+              >
+                <View style={[styles.checkbox, done && styles.checkboxOn]}>
+                  {done && <Text style={styles.checkmark}>✓</Text>}
+                </View>
+                <Text style={styles.taskIcon}>{t.icon}</Text>
+                <Text style={[styles.taskText, done && styles.taskDone]}>{t.text}</Text>
+              </Pressable>
+            );
+          })}
+          {isPreview && (
+            <Text style={styles.tasksNote}>
+              A preview — add plants to your design to track your real jobs.
+            </Text>
+          )}
         </View>
       )}
 
@@ -164,6 +239,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   previewBtnText: { color: colors.primary, fontWeight: '700' },
+  tasksCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  tasksHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm },
+  tasksTitle: { color: colors.text, fontSize: 16, fontWeight: '800' },
+  tasksCount: { color: colors.primary, fontSize: 14, fontWeight: '800' },
+  taskRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 7 },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.sm,
+  },
+  checkboxOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+  checkmark: { color: '#0f1a12', fontSize: 14, fontWeight: '900' },
+  taskIcon: { fontSize: 16, marginRight: 6 },
+  taskText: { color: colors.text, fontSize: 14, fontWeight: '600', flex: 1 },
+  taskDone: { color: colors.textMuted, textDecorationLine: 'line-through' },
+  tasksNote: { color: colors.textMuted, fontSize: 12, marginTop: spacing.sm, fontStyle: 'italic' },
   frostBanner: {
     backgroundColor: 'rgba(74,163,217,0.12)',
     borderColor: '#4aa3d9',

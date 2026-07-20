@@ -15,10 +15,12 @@ import { colors, radius, spacing } from '../theme';
 import { useDesignStore, usePlacedPlantIds } from '../store/useDesignStore';
 import { getPlant } from '../data/plants';
 import { SpeciesLite } from '../data/region';
-import { useCurrentWeather } from '../data/region/weather';
+import { useCurrentWeather, usePlantingHint } from '../data/region/weather';
 import { WeatherOverlay } from '../components/WeatherOverlay';
 import { paradiseScore } from '../data/score';
+import { totalYieldKg, formatYield } from '../data/yield';
 import { formatTemp } from '../data/units';
+import { ForestLayer } from '../types';
 import {
   MONTHS_LONG,
   peakBountyMonth,
@@ -83,6 +85,31 @@ export function VisionScreen() {
   const weather = useCurrentWeather(site.latitude, site.longitude);
   const units = useDesignStore((s) => s.units);
   const score = useMemo(() => paradiseScore(placedList), [placedList]);
+  const harvestKg = useMemo(() => totalYieldKg(placedList), [placedList]);
+  const plantingHint = usePlantingHint(site.latitude, site.longitude);
+  const tips = useMemo(() => {
+    const layers = new Set<ForestLayer>();
+    let nfix = 0;
+    let medicinal = 0;
+    const species = new Set<string>();
+    for (const pp of placedList) {
+      const p = getPlant(pp.plantId);
+      if (!p) continue;
+      layers.add(p.layer);
+      if (p.nitrogenFixer) nfix += 1;
+      if (p.medicinal) medicinal += 1;
+      species.add(p.id);
+    }
+    const out: { icon: string; text: string }[] = [];
+    if (placedList.length > 0) {
+      if (nfix === 0) out.push({ icon: '🌱', text: 'Add a nitrogen fixer' });
+      if (!layers.has('groundcover')) out.push({ icon: '☘️', text: 'Add a ground cover' });
+      if (!layers.has('herbaceous')) out.push({ icon: '🌿', text: 'Add herbs' });
+      if (medicinal === 0) out.push({ icon: '⚕️', text: 'Add a medicinal plant' });
+      if (species.size < 8) out.push({ icon: '🌈', text: 'Add more variety' });
+    }
+    return out.slice(0, 3);
+  }, [placedList]);
   const sound = useSoundscape();
 
   // Make sure region life is loaded even if the user lands here first.
@@ -249,9 +276,40 @@ export function VisionScreen() {
               <StatTile n={stats.medicinal} label="medicinal" />
               <StatTile n={stats.nfix} label="N-fixers" />
             </View>
+            {harvestKg > 0 && (
+              <Text style={styles.harvest}>
+                🧺 Harvest potential ~{formatYield(harvestKg, units === 'imperial')}/yr at maturity
+              </Text>
+            )}
+            {tips.length > 0 && (
+              <View style={styles.tipsWrap}>
+                <Text style={styles.tipsTitle}>Grow your score</Text>
+                <View style={styles.tipsRow}>
+                  {tips.map((t, i) => (
+                    <Pressable key={i} style={styles.tip} onPress={() => navigation.navigate('Plants')}>
+                      <Text style={styles.tipText}>
+                        {t.icon} {t.text}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+            )}
             <Pressable style={styles.shareBtn} onPress={shareParadise}>
               <Text style={styles.shareBtnText}>📤 Share my paradise</Text>
             </Pressable>
+          </View>
+        )}
+
+        {plantingHint && (
+          <View style={styles.section}>
+            <View style={styles.hintCard}>
+              <Text style={styles.hintIcon}>{plantingHint.icon}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.hintTitle}>This week</Text>
+                <Text style={styles.hintText}>{plantingHint.text}</Text>
+              </View>
+            </View>
           </View>
         )}
 
@@ -493,6 +551,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   shareBtnText: { color: colors.primary, fontWeight: '700', fontSize: 14 },
+  harvest: { color: colors.text, fontSize: 14, fontWeight: '600', marginTop: spacing.md },
+  tipsWrap: { marginTop: spacing.md },
+  tipsTitle: { color: colors.textMuted, fontSize: 12, fontWeight: '700', marginBottom: 6 },
+  tipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  tip: {
+    backgroundColor: colors.surfaceAlt,
+    borderColor: colors.primary,
+    borderWidth: 1,
+    borderRadius: radius.lg,
+    paddingVertical: 6,
+    paddingHorizontal: spacing.md,
+  },
+  tipText: { color: colors.text, fontSize: 13, fontWeight: '600' },
+  hintCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+  },
+  hintIcon: { fontSize: 26, marginRight: spacing.md },
+  hintTitle: { color: colors.textMuted, fontSize: 12, fontWeight: '700' },
+  hintText: { color: colors.text, fontSize: 14, marginTop: 2, lineHeight: 19 },
   stripTitle: { color: colors.textMuted, fontSize: 13, fontWeight: '700', marginBottom: 4 },
   speciesCard: { width: 88 },
   speciesPhoto: {

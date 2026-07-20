@@ -7,6 +7,7 @@ import {
   ScrollView,
   Alert,
   Modal,
+  Share,
 } from 'react-native';
 import MapView, { Marker, Circle, Polygon, Region } from 'react-native-maps';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -29,10 +30,15 @@ import {
   solarPosition,
   shadowOffsetMeters,
   computeMicroclimate,
+  sunHoursAt,
   MICRO_META,
   SUN_QUOTE,
   ShadeTree,
 } from '../data/sun';
+import { conflictBetween } from '../data/antagonists';
+import { totalYieldKg, formatYield } from '../data/yield';
+import { zoneLabel } from '../data/climate';
+import { MONTHS_LONG } from '../data/season';
 import { TimeSlider } from '../components/TimeSlider';
 import { radiusAtAge, maturityFraction, canopyCoveragePercent, MAX_YEARS } from '../data/growth';
 import { MapZoomControls } from '../components/MapZoomControls';
@@ -61,6 +67,7 @@ export function DesignScreen() {
   const moveBoundaryPoint = useDesignStore((s) => s.moveBoundaryPoint);
   const clearBoundary = useDesignStore((s) => s.clearBoundary);
   const region = useDesignStore((s) => s.region);
+  const units = useDesignStore((s) => s.units);
   const structures = useDesignStore((s) => s.structures);
   const placeStructure = useDesignStore((s) => s.placeStructure);
   const moveStructure = useDesignStore((s) => s.moveStructure);
@@ -78,6 +85,7 @@ export function DesignScreen() {
   const [legendOpen, setLegendOpen] = useState(false);
   const [drawMode, setDrawMode] = useState(false);
   const [listOpen, setListOpen] = useState(false);
+  const [sunProbe, setSunProbe] = useState<{ latitude: number; longitude: number; hours: number } | null>(null);
   const hasLocation = site.latitude != null && site.longitude != null;
 
   // Sweep the sun across the day when playing.
@@ -361,6 +369,53 @@ export function DesignScreen() {
       .sort((a, b) => LAYER_META[a.plant!.layer].order - LAYER_META[b.plant!.layer].order);
   }, [placed]);
 
+  // Build a detailed, shareable planting plan grouped by forest layer.
+  function sharePlan() {
+    if (grouped.length === 0) {
+      Alert.alert('Nothing to share yet', 'Add some plants to your design first.');
+      return;
+    }
+    const imperial = units === 'imperial';
+    const lines: string[] = [
+      "🌱 My Planting Plan — Let's Plant Paradise",
+      `${region?.koppen ? region.koppen.label + ' · ' : ''}${zoneLabel(site.zone)}`,
+      `${placed.length} plantings · ${grouped.length} species · ~${formatYield(
+        totalYieldKg(placed),
+        imperial
+      )}/yr at maturity`,
+      '',
+    ];
+    LAYER_ORDER.forEach((layer) => {
+      const inLayer = grouped.filter((g) => g.plant!.layer === layer);
+      if (inLayer.length === 0) return;
+      lines.push(`${LAYER_META[layer].label.toUpperCase()}`);
+      inLayer.forEach((g) => {
+        const p = g.plant!;
+        const plantM = p.plantMonths.map((m) => MONTHS_LONG[m - 1].slice(0, 3)).join('/');
+        const harvestM = p.harvestMonths.map((m) => MONTHS_LONG[m - 1].slice(0, 3)).join('/');
+        const when = [
+          plantM ? `plant ${plantM}` : '',
+          harvestM ? `harvest ${harvestM}` : '',
+        ]
+          .filter(Boolean)
+          .join(', ');
+        lines.push(`  • ${g.count}× ${p.common}${when ? ` — ${when}` : ''}`);
+      });
+      lines.push('');
+    });
+    if (structures.length > 0) {
+      lines.push('STRUCTURES');
+      const sc: Record<string, number> = {};
+      structures.forEach((s) => (sc[s.type] = (sc[s.type] ?? 0) + 1));
+      Object.entries(sc).forEach(([type, n]) =>
+        lines.push(`  • ${n}× ${STRUCTURE_META[type as StructureType]?.label ?? type}`)
+      );
+      lines.push('');
+    }
+    lines.push("Designed with Let's Plant Paradise 🌳");
+    Share.share({ message: lines.join('\n').trim() }).catch(() => {});
+  }
+
   // Count plantings crowded closer than their mature spread.
   const crowdedCount = useMemo(() => {
     if (placed.length < 2 || placed.length > 300) return 0;
@@ -384,6 +439,35 @@ export function DesignScreen() {
       }
     }
     return crowded.size;
+  }, [placed]);
+
+  // Antagonist/allelopathy conflicts (e.g. walnut juglone near apples).
+  const conflictInfo = useMemo(() => {
+    if (placed.length < 2 || placed.length > 300) return { count: 0, reason: '' };
+    const arr = placed.map((pp) => ({
+      id: pp.plantId,
+      lat: pp.latitude,
+      lng: pp.longitude,
+      r: (getPlant(pp.plantId)?.matureSpreadM ?? 1) / 2,
+    }));
+    const bad = new Set<number>();
+    let reason = '';
+    for (let i = 0; i < arr.length; i++) {
+      for (let j = i + 1; j < arr.length; j++) {
+        const rsn = conflictBetween(arr[i].id, arr[j].id);
+        if (!rsn) continue;
+        const a = arr[i];
+        const b = arr[j];
+        const dLat = (b.lat - a.lat) * 111320;
+        const dLng = (b.lng - a.lng) * 111320 * Math.cos((a.lat * Math.PI) / 180);
+        if (Math.hypot(dLat, dLng) < a.r + b.r + 3) {
+          bad.add(i);
+          bad.add(j);
+          reason = rsn;
+        }
+      }
+    }
+    return { count: bad.size, reason };
   }, [placed]);
 
   function centerOnPlant(plantId: string) {
@@ -466,8 +550,11 @@ export function DesignScreen() {
         initialRegion={initialRegion}
         onMapReady={onMapReady}
         onPress={(e) => {
+          const coord = e.nativeEvent.coordinate;
           if (drawMode) {
-            setBoundary([...boundary, e.nativeEvent.coordinate]);
+            setBoundary([...boundary, coord]);
+          } else if (sunMode) {
+            setSunProbe({ ...coord, hours: sunHoursAt(sunLat, doy, coord, shadeTrees) });
           } else {
             clearSelection();
           }
@@ -505,6 +592,19 @@ export function DesignScreen() {
               />
             ) : null;
           })}
+
+        {/* Sun-hours probe pin */}
+        {sunMode && sunProbe && (
+          <Marker
+            coordinate={{ latitude: sunProbe.latitude, longitude: sunProbe.longitude }}
+            anchor={{ x: 0.5, y: 0.5 }}
+            tracksViewChanges={false}
+          >
+            <View style={styles.probePin}>
+              <Text style={styles.probeText}>☀️ {sunProbe.hours}h</Text>
+            </View>
+          </Marker>
+        )}
 
         {/* Inferred property outline for privacy planting */}
         {boundary.length >= 3 && (
@@ -620,6 +720,14 @@ export function DesignScreen() {
               : 'Example garden — explore, then add your own land'}
           </Text>
         </View>
+        {conflictInfo.count > 0 && (
+          <Pressable
+            style={{ marginRight: spacing.md }}
+            onPress={() => Alert.alert('Plant conflict', conflictInfo.reason)}
+          >
+            <Text style={styles.conflict}>🚫 {conflictInfo.count}</Text>
+          </Pressable>
+        )}
         {crowdedCount > 0 && (
           <Pressable
             style={{ marginRight: spacing.md }}
@@ -902,6 +1010,12 @@ export function DesignScreen() {
 
           <TimeSlider min={5} max={20} value={sunHour} onChange={setSunHour} />
 
+          <Text style={styles.sunProbeText}>
+            {sunProbe
+              ? `☀️ That spot gets ~${sunProbe.hours} h of direct sun a day`
+              : 'Tap anywhere to check a spot’s daily sun hours.'}
+          </Text>
+
           <View style={styles.sunLegend}>
             {(['cool', 'mod', 'hot'] as const).map((k) => (
               <View key={k} style={styles.legendItem}>
@@ -1012,6 +1126,11 @@ export function DesignScreen() {
               ))}
               {grouped.length === 0 && <Text style={styles.listEmpty}>No plants yet.</Text>}
             </ScrollView>
+            {grouped.length > 0 && (
+              <Pressable style={styles.sharePlanBtn} onPress={sharePlan}>
+                <Text style={styles.sharePlanText}>📤 Share planting plan</Text>
+              </Pressable>
+            )}
             <Pressable style={styles.listClose} onPress={() => setListOpen(false)}>
               <Text style={styles.listCloseText}>Close</Text>
             </Pressable>
@@ -1067,6 +1186,17 @@ const styles = StyleSheet.create({
   topSub: { color: '#dfeee0', fontSize: 12, marginTop: 2 },
   clear: { color: colors.danger, fontWeight: '700' },
   warn: { color: colors.accent, fontWeight: '800' },
+  conflict: { color: colors.danger, fontWeight: '800' },
+  probePin: {
+    backgroundColor: 'rgba(224,169,74,0.92)',
+    borderRadius: radius.sm,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: '#fff',
+  },
+  probeText: { color: '#0f1a12', fontWeight: '800', fontSize: 12 },
+  sunProbeText: { color: '#dfeee0', fontSize: 12, marginTop: spacing.sm, textAlign: 'center' },
   crosshair: {
     position: 'absolute',
     top: '50%',
@@ -1176,6 +1306,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   listCloseText: { color: colors.text, fontWeight: '700' },
+  sharePlanBtn: {
+    marginTop: spacing.md,
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+  },
+  sharePlanText: { color: '#0f1a12', fontWeight: '800' },
   growOverlay: {
     position: 'absolute',
     top: '32%',

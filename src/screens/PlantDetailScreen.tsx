@@ -15,6 +15,7 @@ import { useDesignStore } from '../store/useDesignStore';
 import { Card, Pill, SectionTitle } from '../components/ui';
 import { MONTHS } from '../data/season';
 import { formatLength } from '../data/units';
+import { yieldKgPerYear, formatYield } from '../data/yield';
 
 type ParamList = { PlantDetail: { plantId: string } };
 
@@ -146,6 +147,12 @@ export function PlantDetailScreen() {
             units
           )} wide`}
         />
+        {plant.edible && (
+          <Row
+            label="Yearly harvest"
+            value={`~${formatYield(yieldKgPerYear(plant), units === 'imperial')} at maturity`}
+          />
+        )}
       </Card>
 
       {/* Calendar strip */}

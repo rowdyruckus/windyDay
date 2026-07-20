@@ -183,6 +183,50 @@ export function computeMicroclimate(
   return cells;
 }
 
+/**
+ * Estimated hours of direct sun a point receives over the day, given the trees
+ * that could shade it. Samples the daylight hours and counts those where the
+ * sun is up and no tree shadow falls on the point.
+ */
+export function sunHoursAt(
+  latDeg: number,
+  doy: number,
+  point: LatLng,
+  trees: ShadeTree[]
+): number {
+  const MPD = 111320;
+  const cos = Math.cos((point.latitude * Math.PI) / 180) || 1e-6;
+  const px = point.longitude * MPD * cos;
+  const py = point.latitude * MPD;
+  const treeXY = trees.map((t) => ({
+    x: t.longitude * MPD * cos,
+    y: t.latitude * MPD,
+    r: Math.max(0.6, t.spreadM / 2),
+    h: t.heightM,
+  }));
+
+  const step = 0.5;
+  let hours = 0;
+  for (let hour = 4; hour <= 20; hour += step) {
+    const { altitude, azimuth } = solarPosition(latDeg, doy, hour);
+    if (altitude <= 2) continue;
+    const shadowAz = (azimuth + 180) * DEG;
+    const ux = Math.sin(shadowAz);
+    const uy = Math.cos(shadowAz);
+    let shaded = false;
+    for (const t of treeXY) {
+      const len = t.h / Math.tan(altitude * DEG);
+      const d = distToSegment(px, py, t.x, t.y, t.x + ux * len, t.y + uy * len);
+      if (d < t.r) {
+        shaded = true;
+        break;
+      }
+    }
+    if (!shaded) hours += step;
+  }
+  return Math.round(hours * 10) / 10;
+}
+
 export const MICRO_META: Record<
   MicroClass,
   { label: string; color: string; blurb: string }

@@ -62,6 +62,72 @@ export async function fetchCurrentWeather(
   }
 }
 
+export interface PlantingHint {
+  icon: string;
+  text: string;
+}
+
+/** A 7-day planting hint from the daily forecast (frost / rain / dry). */
+export async function fetchPlantingHint(
+  lat: number,
+  lon: number,
+  timeoutMs = 10000
+): Promise<PlantingHint | null> {
+  const params = new URLSearchParams({
+    latitude: lat.toFixed(3),
+    longitude: lon.toFixed(3),
+    daily: 'temperature_2m_min,precipitation_sum',
+    forecast_days: '7',
+    timezone: 'auto',
+  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`, {
+      signal: controller.signal,
+      headers: { Accept: 'application/json' },
+    });
+    if (!res.ok) return null;
+    const json: any = await res.json();
+    const mins: number[] = json?.daily?.temperature_2m_min ?? [];
+    const precip: number[] = json?.daily?.precipitation_sum ?? [];
+    if (mins.length === 0) return null;
+
+    const days = ['today', 'tomorrow', 'in 2 days', 'in 3 days', 'in 4 days', 'in 5 days', 'in 6 days'];
+    const frostIdx = mins.slice(0, 4).findIndex((t) => t <= 0);
+    if (frostIdx >= 0)
+      return { icon: '❄️', text: `Frost ${days[frostIdx]} — protect tender plants and hold off on new ones.` };
+    const rainIdx = precip.slice(0, 3).findIndex((p) => p >= 3);
+    if (rainIdx >= 0)
+      return { icon: '🌧️', text: `Rain ${days[rainIdx]} — a great window to plant and let nature water it in.` };
+    const wetWeek = precip.reduce((a, b) => a + b, 0) < 3;
+    if (wetWeek) return { icon: '☀️', text: 'Dry week ahead — water any new plantings well.' };
+    return { icon: '🌤️', text: 'Mild week ahead — good planting weather.' };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export function usePlantingHint(lat: number | null, lon: number | null): PlantingHint | null {
+  const [hint, setHint] = useState<PlantingHint | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    if (lat == null || lon == null) {
+      setHint(null);
+      return;
+    }
+    fetchPlantingHint(lat, lon).then((h) => {
+      if (!cancelled) setHint(h);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [lat, lon]);
+  return hint;
+}
+
 /** Hook: fetch current weather for a coordinate (re-fetches when it changes). */
 export function useCurrentWeather(
   lat: number | null,
