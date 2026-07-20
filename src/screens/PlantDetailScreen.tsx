@@ -16,6 +16,8 @@ import { Card, Pill, SectionTitle } from '../components/ui';
 import { MONTHS } from '../data/season';
 import { formatLength } from '../data/units';
 import { yieldKgPerYear, formatYield } from '../data/yield';
+import { dollarsPerYear, formatMoney } from '../data/economics';
+import { bloomLabel } from '../data/pollinators';
 
 type ParamList = { PlantDetail: { plantId: string } };
 
@@ -153,6 +155,13 @@ export function PlantDetailScreen() {
             value={`~${formatYield(yieldKgPerYear(plant), units === 'imperial')} at maturity`}
           />
         )}
+        {plant.edible && dollarsPerYear(plant) > 0 && (
+          <Row
+            label="Grocery value"
+            value={`~${formatMoney(dollarsPerYear(plant))}/yr at the store`}
+          />
+        )}
+        <Row label="Pollinator forage" value={`Blooms ${bloomLabel(plant)}`} />
       </Card>
 
       {/* Calendar strip */}

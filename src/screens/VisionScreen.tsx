@@ -19,6 +19,11 @@ import { useCurrentWeather, usePlantingHint } from '../data/region/weather';
 import { WeatherOverlay } from '../components/WeatherOverlay';
 import { paradiseScore } from '../data/score';
 import { totalYieldKg, formatYield } from '../data/yield';
+import { totalDollarsPerYear, formatMoney } from '../data/economics';
+import { totalCo2KgPerYear, formatCo2, carEquivalentKm } from '../data/carbon';
+import { pollinatorReport } from '../data/pollinators';
+import { recommendPlants } from '../data/recommend';
+import { milestones } from '../data/milestones';
 import { formatTemp } from '../data/units';
 import { ForestLayer } from '../types';
 import {
@@ -44,6 +49,7 @@ export function VisionScreen() {
   const site = useDesignStore((s) => s.site);
   const placedIds = usePlacedPlantIds();
   const placedList = useDesignStore((s) => s.placed);
+  const structures = useDesignStore((s) => s.structures);
   const region = useDesignStore((s) => s.region);
 
   const stats = useMemo(() => {
@@ -86,6 +92,15 @@ export function VisionScreen() {
   const units = useDesignStore((s) => s.units);
   const score = useMemo(() => paradiseScore(placedList), [placedList]);
   const harvestKg = useMemo(() => totalYieldKg(placedList), [placedList]);
+  const savings = useMemo(() => totalDollarsPerYear(placedList), [placedList]);
+  const co2 = useMemo(() => totalCo2KgPerYear(placedList), [placedList]);
+  const pollinators = useMemo(() => pollinatorReport(placedList), [placedList]);
+  const recs = useMemo(() => recommendPlants(placedList, site, 3), [placedList, site]);
+  const badges = useMemo(
+    () => milestones(placedList, structures),
+    [placedList, structures]
+  );
+  const earnedCount = badges.filter((b) => b.earned).length;
   const plantingHint = usePlantingHint(site.latitude, site.longitude);
   const tips = useMemo(() => {
     const layers = new Set<ForestLayer>();
@@ -281,6 +296,24 @@ export function VisionScreen() {
                 🧺 Harvest potential ~{formatYield(harvestKg, units === 'imperial')}/yr at maturity
               </Text>
             )}
+            {(savings > 0 || co2 > 0) && (
+              <View style={styles.impactRow}>
+                {savings > 0 && (
+                  <View style={styles.impactTile}>
+                    <Text style={styles.impactNum}>~{formatMoney(savings)}</Text>
+                    <Text style={styles.impactLbl}>groceries/yr</Text>
+                  </View>
+                )}
+                {co2 > 0 && (
+                  <View style={styles.impactTile}>
+                    <Text style={styles.impactNum}>~{formatCo2(co2)}</Text>
+                    <Text style={styles.impactLbl}>
+                      CO₂/yr · {carEquivalentKm(co2).toLocaleString()} km driving
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
             {tips.length > 0 && (
               <View style={styles.tipsWrap}>
                 <Text style={styles.tipsTitle}>Grow your score</Text>
@@ -298,6 +331,82 @@ export function VisionScreen() {
             <Pressable style={styles.shareBtn} onPress={shareParadise}>
               <Text style={styles.shareBtnText}>📤 Share my paradise</Text>
             </Pressable>
+          </View>
+        )}
+
+        {/* ---- Plant next: smart, site-suited suggestions ---- */}
+        {hasLocation && recs.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.kicker}>PLANT NEXT</Text>
+            <Text style={styles.bountyTitle}>
+              {stats.total > 0 ? 'Fill the gaps in your forest' : 'Great ways to begin'}
+            </Text>
+            {recs.map((r) => (
+              <Pressable
+                key={r.plant.id}
+                style={styles.recRow}
+                onPress={() => navigation.navigate('PlantDetail', { plantId: r.plant.id })}
+              >
+                <Text style={styles.recIcon}>{r.plant.icon}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.recName}>{r.plant.common}</Text>
+                  <Text style={styles.recReason}>{r.reason}</Text>
+                </View>
+                <Text style={styles.recAdd}>＋</Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
+
+        {/* ---- Pollinator forage across the year ---- */}
+        {stats.total > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.kicker}>POLLINATOR FORAGE</Text>
+            <View style={styles.scoreRow}>
+              <Text style={styles.beeNum}>🐝 {pollinators.score}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.scoreLabel}>
+                  Bloom coverage · {pollinators.gaps.length === 0 ? 'year-round forage' : 'some gaps'}
+                </Text>
+                <View style={styles.bloomStrip}>
+                  {pollinators.bloomByMonth.map((c, i) => (
+                    <View
+                      key={i}
+                      style={[
+                        styles.bloomCell,
+                        { backgroundColor: c > 0 ? colors.accent : colors.surfaceAlt },
+                      ]}
+                    />
+                  ))}
+                </View>
+              </View>
+            </View>
+            {pollinators.gaps.length > 0 ? (
+              <Text style={styles.bountyBody}>
+                No blooms in {pollinators.gaps.map((m) => MONTHS_LONG[m - 1]).join(', ')} — add a
+                plant that flowers then to keep bees & butterflies fed all season.
+              </Text>
+            ) : (
+              <Text style={styles.bountyBody}>
+                Something's in flower every month of your season — a feast for bees and butterflies.
+              </Text>
+            )}
+          </View>
+        )}
+
+        {/* ---- Milestones ---- */}
+        {hasLocation && (
+          <View style={styles.section}>
+            <Text style={styles.kicker}>MILESTONES · {earnedCount}/{badges.length}</Text>
+            <View style={styles.badgeGrid}>
+              {badges.map((b) => (
+                <View key={b.id} style={[styles.badge, b.earned && styles.badgeOn]}>
+                  <Text style={[styles.badgeIcon, !b.earned && styles.badgeIconOff]}>{b.icon}</Text>
+                  <Text style={[styles.badgeTitle, b.earned && styles.badgeTitleOn]}>{b.title}</Text>
+                  <Text style={styles.badgeDetail}>{b.earned ? 'Earned' : b.detail}</Text>
+                </View>
+              ))}
+            </View>
           </View>
         )}
 
@@ -552,6 +661,52 @@ const styles = StyleSheet.create({
   },
   shareBtnText: { color: colors.primary, fontWeight: '700', fontSize: 14 },
   harvest: { color: colors.text, fontSize: 14, fontWeight: '600', marginTop: spacing.md },
+  impactRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
+  impactTile: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  impactNum: { color: colors.accent, fontSize: 18, fontWeight: '800' },
+  impactLbl: { color: colors.textMuted, fontSize: 11, marginTop: 2 },
+  recRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginTop: spacing.sm,
+  },
+  recIcon: { fontSize: 26, marginRight: spacing.md },
+  recName: { color: colors.text, fontSize: 15, fontWeight: '700' },
+  recReason: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
+  recAdd: { color: colors.primary, fontSize: 26, fontWeight: '800', marginLeft: spacing.sm },
+  beeNum: { color: colors.accent, fontSize: 30, fontWeight: '900' },
+  bloomStrip: { flexDirection: 'row', gap: 3, marginTop: 6 },
+  bloomCell: { flex: 1, height: 10, borderRadius: 2 },
+  badgeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm },
+  badge: {
+    width: '31%',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.sm,
+    alignItems: 'center',
+    opacity: 0.6,
+  },
+  badgeOn: { opacity: 1, borderColor: colors.primary },
+  badgeIcon: { fontSize: 26 },
+  badgeIconOff: { opacity: 0.5 },
+  badgeTitle: { color: colors.textMuted, fontSize: 12, fontWeight: '700', marginTop: 4, textAlign: 'center' },
+  badgeTitleOn: { color: colors.text },
+  badgeDetail: { color: colors.textMuted, fontSize: 10, marginTop: 2, textAlign: 'center' },
   tipsWrap: { marginTop: spacing.md },
   tipsTitle: { color: colors.textMuted, fontSize: 12, fontWeight: '700', marginBottom: 6 },
   tipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },

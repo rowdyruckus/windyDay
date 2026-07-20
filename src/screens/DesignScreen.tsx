@@ -36,6 +36,7 @@ import {
   ShadeTree,
 } from '../data/sun';
 import { conflictBetween } from '../data/antagonists';
+import { findGuildGaps } from '../data/guildgaps';
 import { totalYieldKg, formatYield } from '../data/yield';
 import { zoneLabel } from '../data/climate';
 import { MONTHS_LONG } from '../data/season';
@@ -368,6 +369,9 @@ export function DesignScreen() {
       .filter((g) => g.plant)
       .sort((a, b) => LAYER_META[a.plant!.layer].order - LAYER_META[b.plant!.layer].order);
   }, [placed]);
+
+  // Which trees are missing key guild support (N-fixer / ground cover / pollinator).
+  const guildGaps = useMemo(() => findGuildGaps(placed), [placed]);
 
   // Build a detailed, shareable planting plan grouped by forest layer.
   function sharePlan() {
@@ -1125,6 +1129,39 @@ export function DesignScreen() {
                 </View>
               ))}
               {grouped.length === 0 && <Text style={styles.listEmpty}>No plants yet.</Text>}
+              {guildGaps.treeCount > 0 &&
+                (guildGaps.missingNfix > 0 ||
+                  guildGaps.missingGround > 0 ||
+                  guildGaps.missingPollinator > 0) && (
+                  <View style={styles.guildCard}>
+                    <Text style={styles.guildTitle}>🌿 Guild insights</Text>
+                    {guildGaps.missingNfix > 0 && (
+                      <Text style={styles.guildLine}>
+                        {guildGaps.missingNfix}/{guildGaps.treeCount} trees have no nitrogen fixer
+                        nearby
+                      </Text>
+                    )}
+                    {guildGaps.missingGround > 0 && (
+                      <Text style={styles.guildLine}>
+                        {guildGaps.missingGround}/{guildGaps.treeCount} trees have no ground cover
+                        nearby
+                      </Text>
+                    )}
+                    {guildGaps.missingPollinator > 0 && (
+                      <Text style={styles.guildLine}>
+                        {guildGaps.missingPollinator}/{guildGaps.treeCount} trees have no pollinator
+                        plant nearby
+                      </Text>
+                    )}
+                    {guildGaps.worst.length > 0 && (
+                      <Text style={styles.guildHint}>
+                        e.g. {guildGaps.worst[0].icon} {guildGaps.worst[0].name} needs a{' '}
+                        {guildGaps.worst[0].missing.join(' & ')}. Plant a guild from any tree's
+                        detail page.
+                      </Text>
+                    )}
+                  </View>
+                )}
             </ScrollView>
             {grouped.length > 0 && (
               <Pressable style={styles.sharePlanBtn} onPress={sharePlan}>
@@ -1314,6 +1351,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   sharePlanText: { color: '#0f1a12', fontWeight: '800' },
+  guildCard: {
+    marginTop: spacing.md,
+    backgroundColor: colors.surfaceAlt,
+    borderColor: colors.primary,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+  },
+  guildTitle: { color: colors.text, fontWeight: '800', fontSize: 14, marginBottom: 4 },
+  guildLine: { color: colors.textMuted, fontSize: 13, marginTop: 2 },
+  guildHint: { color: colors.text, fontSize: 12, marginTop: spacing.sm, lineHeight: 17 },
   growOverlay: {
     position: 'absolute',
     top: '32%',

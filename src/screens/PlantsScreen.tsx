@@ -18,6 +18,7 @@ import { useDesignStore } from '../store/useDesignStore';
 import { nativePlantGenera } from '../data/region';
 import { goalScore } from '../data/goals';
 import { PlantCard } from '../components/PlantCard';
+import { isPollinatorPlant } from '../data/pollinators';
 import { ForestLayer } from '../types';
 
 type LayerFilter = ForestLayer | 'all';
@@ -33,6 +34,8 @@ export function PlantsScreen() {
   const [layer, setLayer] = useState<LayerFilter>('all');
   const [edibleOnly, setEdibleOnly] = useState(false);
   const [medicinalOnly, setMedicinalOnly] = useState(false);
+  const [pollinatorOnly, setPollinatorOnly] = useState(false);
+  const [nfixOnly, setNfixOnly] = useState(false);
   const [suitedOnly, setSuitedOnly] = useState(false);
   const [query, setQuery] = useState('');
 
@@ -42,6 +45,8 @@ export function PlantsScreen() {
       if (layer !== 'all' && p.layer !== layer) return false;
       if (edibleOnly && !p.edible) return false;
       if (medicinalOnly && !p.medicinal) return false;
+      if (pollinatorOnly && !isPollinatorPlant(p)) return false;
+      if (nfixOnly && !p.nitrogenFixer) return false;
       if (suitedOnly && !suitability(p, site).ok) return false;
       if (
         q &&
@@ -69,7 +74,7 @@ export function PlantsScreen() {
       return a.common.localeCompare(b.common);
     });
     return list;
-  }, [layer, edibleOnly, medicinalOnly, suitedOnly, site, query, goals]);
+  }, [layer, edibleOnly, medicinalOnly, pollinatorOnly, nfixOnly, suitedOnly, site, query, goals]);
 
   return (
     <View style={[styles.root, { paddingTop: insets.top + spacing.md }]}>
@@ -124,6 +129,12 @@ export function PlantsScreen() {
           active={medicinalOnly}
           onPress={() => setMedicinalOnly((v) => !v)}
         />
+        <Toggle
+          label="🐝 Pollinator"
+          active={pollinatorOnly}
+          onPress={() => setPollinatorOnly((v) => !v)}
+        />
+        <Toggle label="🌱 N-fixer" active={nfixOnly} onPress={() => setNfixOnly((v) => !v)} />
         <Toggle
           label="✓ Suits my site"
           active={suitedOnly}
@@ -230,14 +241,16 @@ const styles = StyleSheet.create({
   chipTextActive: { color: '#0f1a12' },
   toggleRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
     paddingHorizontal: spacing.lg,
     marginTop: spacing.sm,
     marginBottom: spacing.xs,
   },
   toggle: {
-    flex: 1,
+    flexGrow: 1,
     paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
     borderRadius: radius.sm,
     backgroundColor: colors.surface,
     borderWidth: 1,
