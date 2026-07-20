@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { Onboarding } from './src/screens/Onboarding';
+import { CoachMarks } from './src/components/CoachMarks';
 import { useStartupMusic } from './src/audio/music';
 import { useDesignStore } from './src/store/useDesignStore';
 
@@ -20,7 +21,14 @@ export default function App() {
     <SafeAreaProvider>
       <StatusBar style="light" />
       <StartupMusic />
-      {hydrated && !onboarded ? <Onboarding /> : <RootNavigator />}
+      {hydrated && !onboarded ? (
+        <Onboarding />
+      ) : (
+        <>
+          <RootNavigator />
+          <CoachMarks />
+        </>
+      )}
     </SafeAreaProvider>
   );
 }

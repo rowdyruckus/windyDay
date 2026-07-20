@@ -40,6 +40,10 @@ interface DesignState {
   onboarded: boolean;
   goals: Goal[];
   units: Units;
+  /** One-time coach-mark tour of the tabs has been shown. */
+  tourSeen: boolean;
+  /** User dismissed the get-started checklist on Vision. */
+  gettingStartedDismissed: boolean;
   hydrated: boolean;
 
   setLocation: (latitude: number, longitude: number, zone: number) => void;
@@ -79,6 +83,8 @@ interface DesignState {
   completeOnboarding: (goals: Goal[]) => void;
   setGoals: (goals: Goal[]) => void;
   resetOnboarding: () => void;
+  markTourSeen: () => void;
+  dismissGettingStarted: () => void;
   setUnits: (units: Units) => void;
 
   /** Clear the saved site & region so the example garden shows again. */
@@ -123,6 +129,8 @@ export const useDesignStore = create<DesignState>()(
       onboarded: false,
       goals: [],
       units: 'imperial',
+      tourSeen: false,
+      gettingStartedDismissed: false,
       hydrated: false,
 
       setLocation: (latitude, longitude, zone) =>
@@ -260,7 +268,10 @@ export const useDesignStore = create<DesignState>()(
 
       completeOnboarding: (goals) => set(() => ({ onboarded: true, goals })),
       setGoals: (goals) => set(() => ({ goals })),
-      resetOnboarding: () => set(() => ({ onboarded: false })),
+      resetOnboarding: () =>
+        set(() => ({ onboarded: false, tourSeen: false, gettingStartedDismissed: false })),
+      markTourSeen: () => set(() => ({ tourSeen: true })),
+      dismissGettingStarted: () => set(() => ({ gettingStartedDismissed: true })),
       setUnits: (units) => set(() => ({ units })),
 
       clearSite: () =>
@@ -285,6 +296,8 @@ export const useDesignStore = create<DesignState>()(
         onboarded: s.onboarded,
         goals: s.goals,
         units: s.units,
+        tourSeen: s.tourSeen,
+        gettingStartedDismissed: s.gettingStartedDismissed,
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHydrated();
