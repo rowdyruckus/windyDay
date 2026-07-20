@@ -20,6 +20,8 @@ import { SunNeed } from '../types';
 import { Card, SectionTitle } from '../components/ui';
 import { BasemapTiles, BasemapToggle, EsriAttribution } from '../components/Basemap';
 import { MapZoomControls } from '../components/MapZoomControls';
+import { formatTemp, formatPrecip, formatVolume } from '../data/units';
+import { polygonAreaM2 } from '../data/geo';
 
 const SUN_OPTIONS: { value: SunNeed; label: string; icon: string }[] = [
   { value: 'full', label: 'Full sun', icon: '☀️' },
@@ -38,6 +40,9 @@ export function SiteScreen() {
   const resolveRegion = useDesignStore((s) => s.resolveRegion);
   const regionInfo = useDesignStore((s) => s.region);
   const regionStatus = useDesignStore((s) => s.regionStatus);
+  const units = useDesignStore((s) => s.units);
+  const boundary = useDesignStore((s) => s.boundary);
+  const structures = useDesignStore((s) => s.structures);
   const [loading, setLoading] = useState(false);
   const mapRef = useRef<MapView | null>(null);
   const mapReady = useRef(false);
@@ -131,6 +136,19 @@ export function SiteScreen() {
         : { latitude: 39.5, longitude: -98.35, latitudeDelta: 40, longitudeDelta: 40 },
     [hasLocation, site.latitude, site.longitude]
   );
+
+  // Water & irrigation figures (1 mm of rain over 1 m² = 1 litre).
+  const rainMm = regionInfo?.annualPrecipMm ?? 0;
+  const areaM2 = boundary.length >= 3 ? polygonAreaM2(boundary) : 0;
+  const rainOverProperty = areaM2 * rainMm;
+  let storageL = 0;
+  for (const st of structures) {
+    if (st.type === 'rainbarrel') storageL += 200;
+    if (st.type === 'pond') {
+      const r = st.radiusM ?? 4;
+      storageL += Math.PI * r * r * 0.4 * 1000; // ~0.4 m deep
+    }
+  }
 
   return (
     <ScrollView
@@ -240,10 +258,7 @@ export function SiteScreen() {
           {regionInfo && (
             <View style={styles.regionStats}>
               {regionInfo.annualMinTempC != null && (
-                <Stat
-                  label="Coldest low"
-                  value={`${Math.round(regionInfo.annualMinTempC)}°C`}
-                />
+                <Stat label="Coldest low" value={formatTemp(regionInfo.annualMinTempC, units)} />
               )}
               {regionInfo.growingSeasonDays != null && (
                 <Stat
@@ -252,7 +267,7 @@ export function SiteScreen() {
                 />
               )}
               {regionInfo.annualPrecipMm != null && (
-                <Stat label="Rainfall" value={`${regionInfo.annualPrecipMm} mm`} />
+                <Stat label="Rainfall" value={formatPrecip(regionInfo.annualPrecipMm, units)} />
               )}
               <Stat
                 label="Zone source"
@@ -272,6 +287,34 @@ export function SiteScreen() {
               Sources: {regionInfo.sources.join(' · ')}
             </Text>
           )}
+        </Card>
+      )}
+
+      {hasLocation && regionInfo?.annualPrecipMm != null && (
+        <Card style={{ marginTop: spacing.md }}>
+          <SectionTitle>💧 Water & irrigation</SectionTitle>
+          {areaM2 > 0 ? (
+            <Text style={styles.waterBig}>
+              Your land catches ~{formatVolume(rainOverProperty, units)} of rain a year
+            </Text>
+          ) : (
+            <Text style={styles.waterBig}>
+              ~{formatVolume(rainMm * 100, units)} of rain per 100 m² a year
+            </Text>
+          )}
+          <Text style={styles.cardHint}>
+            {areaM2 > 0
+              ? `Over your ${Math.round(areaM2)} m² property.`
+              : 'Outline your property on the Design tab to see your total.'}
+          </Text>
+          <Text style={styles.waterStore}>
+            On-site storage: {formatVolume(storageL, units)}
+            {storageL === 0 ? ' — add rain barrels or a pond on Design' : ' (barrels + pond)'}
+          </Text>
+          <Text style={styles.cardHint}>
+            A rain barrel holds ~200 L; a pond stores far more to carry you through
+            dry spells.
+          </Text>
         </Card>
       )}
 
@@ -411,6 +454,8 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   cardHint: { color: colors.textMuted, fontSize: 13, marginBottom: spacing.md },
+  waterBig: { color: colors.text, fontSize: 18, fontWeight: '700' },
+  waterStore: { color: colors.text, fontSize: 14, fontWeight: '600', marginTop: spacing.sm },
   stepper: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   stepBtn: {
     width: 48,

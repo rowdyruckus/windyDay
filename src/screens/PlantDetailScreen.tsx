@@ -14,6 +14,7 @@ import { suitability } from '../data/climate';
 import { useDesignStore } from '../store/useDesignStore';
 import { Card, Pill, SectionTitle } from '../components/ui';
 import { MONTHS } from '../data/season';
+import { formatLength } from '../data/units';
 
 type ParamList = { PlantDetail: { plantId: string } };
 
@@ -24,6 +25,7 @@ export function PlantDetailScreen() {
   const placed = useDesignStore((s) => s.placed);
   const placePlant = useDesignStore((s) => s.placePlant);
   const placePlants = useDesignStore((s) => s.placePlants);
+  const units = useDesignStore((s) => s.units);
 
   const plant = getPlant(route.params.plantId);
   if (!plant) {
@@ -139,7 +141,10 @@ export function PlantDetailScreen() {
         <Row label="Hardiness" value={`USDA zones ${plant.minZone}–${plant.maxZone}`} />
         <Row
           label="Mature size"
-          value={`${plant.matureHeightM} m tall · ${plant.matureSpreadM} m wide`}
+          value={`${formatLength(plant.matureHeightM, units)} tall · ${formatLength(
+            plant.matureSpreadM,
+            units
+          )} wide`}
         />
       </Card>
 

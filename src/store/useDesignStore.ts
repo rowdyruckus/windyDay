@@ -12,6 +12,7 @@ import {
 } from '../data/region';
 import { STARTUP_SITE } from '../data/demo';
 import { Goal } from '../data/goals';
+import { Units } from '../data/units';
 
 export type RegionStatus = 'idle' | 'loading' | 'ready' | 'error';
 export type Basemap = 'apple' | 'esri';
@@ -38,6 +39,7 @@ interface DesignState {
   /** First-run onboarding completed, and the user's chosen goals. */
   onboarded: boolean;
   goals: Goal[];
+  units: Units;
   hydrated: boolean;
 
   setLocation: (latitude: number, longitude: number, zone: number) => void;
@@ -75,6 +77,9 @@ interface DesignState {
   toggleMusic: () => void;
 
   completeOnboarding: (goals: Goal[]) => void;
+  setGoals: (goals: Goal[]) => void;
+  resetOnboarding: () => void;
+  setUnits: (units: Units) => void;
 
   /** Clear the saved site & region so the example garden shows again. */
   clearSite: () => void;
@@ -117,6 +122,7 @@ export const useDesignStore = create<DesignState>()(
       musicMuted: false,
       onboarded: false,
       goals: [],
+      units: 'imperial',
       hydrated: false,
 
       setLocation: (latitude, longitude, zone) =>
@@ -253,6 +259,9 @@ export const useDesignStore = create<DesignState>()(
       toggleMusic: () => set((s) => ({ musicMuted: !s.musicMuted })),
 
       completeOnboarding: (goals) => set(() => ({ onboarded: true, goals })),
+      setGoals: (goals) => set(() => ({ goals })),
+      resetOnboarding: () => set(() => ({ onboarded: false })),
+      setUnits: (units) => set(() => ({ units })),
 
       clearSite: () =>
         set(() => ({ site: initialSite, region: null, regionStatus: 'idle' })),
@@ -275,11 +284,12 @@ export const useDesignStore = create<DesignState>()(
         musicMuted: s.musicMuted,
         onboarded: s.onboarded,
         goals: s.goals,
+        units: s.units,
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHydrated();
-        // Always start centered on the showcase location, whatever was saved.
-        state?.startAtStartup();
+        // Yosemite is only the default when nothing was ever saved (the store's
+        // initial `site` handles that); a user's saved location now persists.
       },
     }
   )

@@ -361,6 +361,31 @@ export function DesignScreen() {
       .sort((a, b) => LAYER_META[a.plant!.layer].order - LAYER_META[b.plant!.layer].order);
   }, [placed]);
 
+  // Count plantings crowded closer than their mature spread.
+  const crowdedCount = useMemo(() => {
+    if (placed.length < 2 || placed.length > 300) return 0;
+    const pts = placed
+      .map((pp) => {
+        const p = getPlant(pp.plantId);
+        return p ? { lat: pp.latitude, lng: pp.longitude, r: p.matureSpreadM / 2 } : null;
+      })
+      .filter((x): x is { lat: number; lng: number; r: number } => x !== null);
+    const crowded = new Set<number>();
+    for (let i = 0; i < pts.length; i++) {
+      for (let j = i + 1; j < pts.length; j++) {
+        const a = pts[i];
+        const b = pts[j];
+        const dLat = (b.lat - a.lat) * 111320;
+        const dLng = (b.lng - a.lng) * 111320 * Math.cos((a.lat * Math.PI) / 180);
+        if (Math.hypot(dLat, dLng) < (a.r + b.r) * 0.6) {
+          crowded.add(i);
+          crowded.add(j);
+        }
+      }
+    }
+    return crowded.size;
+  }, [placed]);
+
   function centerOnPlant(plantId: string) {
     const first = placed.find((p) => p.plantId === plantId);
     if (first) {
@@ -595,6 +620,19 @@ export function DesignScreen() {
               : 'Example garden — explore, then add your own land'}
           </Text>
         </View>
+        {crowdedCount > 0 && (
+          <Pressable
+            style={{ marginRight: spacing.md }}
+            onPress={() =>
+              Alert.alert(
+                'Crowded plantings',
+                `${crowdedCount} plants sit closer than their mature spread. Thin them or drag them apart so the canopies don't compete for light and water.`
+              )
+            }
+          >
+            <Text style={styles.warn}>⚠️ {crowdedCount}</Text>
+          </Pressable>
+        )}
         {placed.length > 0 && (
           <Pressable onPress={() => setListOpen(true)} style={{ marginRight: spacing.md }}>
             <Text style={[styles.clear, { color: '#fff' }]}>📋 List</Text>
@@ -1028,6 +1066,7 @@ const styles = StyleSheet.create({
   topTitle: { color: '#fff', fontSize: 18, fontWeight: '800' },
   topSub: { color: '#dfeee0', fontSize: 12, marginTop: 2 },
   clear: { color: colors.danger, fontWeight: '700' },
+  warn: { color: colors.accent, fontWeight: '800' },
   crosshair: {
     position: 'absolute',
     top: '50%',

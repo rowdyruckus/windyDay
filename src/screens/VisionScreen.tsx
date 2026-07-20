@@ -16,6 +16,9 @@ import { useDesignStore, usePlacedPlantIds } from '../store/useDesignStore';
 import { getPlant } from '../data/plants';
 import { SpeciesLite } from '../data/region';
 import { useCurrentWeather } from '../data/region/weather';
+import { WeatherOverlay } from '../components/WeatherOverlay';
+import { paradiseScore } from '../data/score';
+import { formatTemp } from '../data/units';
 import {
   MONTHS_LONG,
   peakBountyMonth,
@@ -78,6 +81,8 @@ export function VisionScreen() {
   const musicMuted = useDesignStore((s) => s.musicMuted);
   const toggleMusic = useDesignStore((s) => s.toggleMusic);
   const weather = useCurrentWeather(site.latitude, site.longitude);
+  const units = useDesignStore((s) => s.units);
+  const score = useMemo(() => paradiseScore(placedList), [placedList]);
   const sound = useSoundscape();
 
   // Make sure region life is loaded even if the user lands here first.
@@ -137,6 +142,16 @@ export function VisionScreen() {
           {/* Hens pecking and wandering along the ground */}
           <Hens height={320} />
 
+          {/* Live-weather touches: rain / clouds / night */}
+          {weather && <WeatherOverlay code={weather.code} isDay={weather.isDay} />}
+
+          <Pressable
+            onPress={() => navigation.navigate('Settings')}
+            style={[styles.gear, { top: insets.top + spacing.sm }]}
+          >
+            <Text style={styles.gearIcon}>⚙️</Text>
+          </Pressable>
+
           <View style={[styles.heroContent, { paddingTop: insets.top + spacing.md }]}>
             <Text style={styles.dawnTag}>
               {season.icon}  Dawn · {season.label}
@@ -150,7 +165,7 @@ export function VisionScreen() {
 
             {weather && (
               <Text style={styles.weatherChip}>
-                {weather.icon} {Math.round((weather.tempC * 9) / 5 + 32)}°F · {weather.label}
+                {weather.icon} {formatTemp(weather.tempC, units)} · {weather.label}
               </Text>
             )}
 
@@ -218,6 +233,15 @@ export function VisionScreen() {
         {stats.total > 0 && (
           <View style={styles.section}>
             <Text style={styles.kicker}>YOUR PARADISE SO FAR</Text>
+            <View style={styles.scoreRow}>
+              <Text style={styles.scoreNum}>{score.score}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.scoreLabel}>Paradise score · {score.label}</Text>
+                <View style={styles.scoreBar}>
+                  <View style={[styles.scoreFill, { width: `${score.score}%` }]} />
+                </View>
+              </View>
+            </View>
             <View style={styles.statRow}>
               <StatTile n={stats.total} label="plantings" />
               <StatTile n={stats.species} label="species" />
@@ -431,6 +455,22 @@ const styles = StyleSheet.create({
   },
   fruitIcon: { fontSize: 18, marginRight: 6 },
   fruitName: { color: colors.text, fontWeight: '600', fontSize: 13 },
+  gear: {
+    position: 'absolute',
+    right: spacing.md,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(15,26,18,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  gearIcon: { fontSize: 20 },
+  scoreRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.md },
+  scoreNum: { color: colors.primary, fontSize: 40, fontWeight: '900' },
+  scoreLabel: { color: colors.text, fontSize: 14, fontWeight: '700', marginBottom: 6 },
+  scoreBar: { height: 8, borderRadius: 4, backgroundColor: colors.surfaceAlt, overflow: 'hidden' },
+  scoreFill: { height: 8, borderRadius: 4, backgroundColor: colors.primary },
   statRow: { flexDirection: 'row', gap: spacing.sm },
   statTile: {
     flex: 1,

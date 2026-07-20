@@ -14,6 +14,7 @@ import { PlantsScreen } from '../screens/PlantsScreen';
 import { DesignScreen } from '../screens/DesignScreen';
 import { TimelineScreen } from '../screens/TimelineScreen';
 import { PlantDetailScreen } from '../screens/PlantDetailScreen';
+import { SettingsScreen } from '../screens/SettingsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -82,6 +83,11 @@ export function RootNavigator() {
           name="PlantDetail"
           component={PlantDetailScreen}
           options={{ title: 'Plant' }}
+        />
+        <Stack.Screen
+          name="Settings"
+          component={SettingsScreen}
+          options={{ title: 'Settings' }}
         />
       </Stack.Navigator>
     </NavigationContainer>
