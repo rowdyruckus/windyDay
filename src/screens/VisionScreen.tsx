@@ -26,6 +26,7 @@ import { pollinatorReport } from '../data/pollinators';
 import { recommendPlants } from '../data/recommend';
 import { milestones } from '../data/milestones';
 import { CountUp } from '../components/CountUp';
+import { GrowingSprig } from '../components/GrowingSprig';
 import { formatTemp } from '../data/units';
 import { ForestLayer } from '../types';
 import {
@@ -295,9 +296,14 @@ export function VisionScreen() {
                 glistening morning of harvest.
               </Text>
               <View style={styles.fruitRow}>
-                {fruiting.slice(0, 12).map((p) => (
+                {fruiting.slice(0, 12).map((p, i) => (
                   <View key={p.id} style={styles.fruitChip}>
-                    <Text style={styles.fruitIcon}>{p.icon}</Text>
+                    <View style={styles.fruitIconWrap}>
+                      <View style={styles.fruitSprig}>
+                        <GrowingSprig size={26} delayMs={(i % 6) * 500} />
+                      </View>
+                      <Text style={styles.fruitIcon}>{p.icon}</Text>
+                    </View>
                     <Text style={styles.fruitName}>{p.common}</Text>
                   </View>
                 ))}
@@ -715,7 +721,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  fruitIcon: { fontSize: 18, marginRight: 6 },
+  fruitIconWrap: {
+    width: 26,
+    height: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 6,
+  },
+  fruitSprig: { position: 'absolute', left: 0, right: 0, bottom: -2, alignItems: 'center' },
+  fruitIcon: { fontSize: 18 },
   fruitName: { color: colors.text, fontWeight: '600', fontSize: 13 },
   gear: {
     position: 'absolute',
