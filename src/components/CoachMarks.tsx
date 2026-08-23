@@ -4,13 +4,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, radius, spacing } from '../theme';
 import { useDesignStore } from '../store/useDesignStore';
 
-// The five bottom tabs, in order, with a one-line explanation each.
+// The bottom tabs, in order, with a one-line explanation each.
 const TABS = [
   { icon: '🌄', name: 'Vision', hint: 'Your dawn & progress' },
   { icon: '📍', name: 'Site', hint: 'Your land & climate' },
   { icon: '🌱', name: 'Plants', hint: 'What thrives here' },
   { icon: '🗺️', name: 'Design', hint: 'Plant on the map' },
   { icon: '📅', name: 'Timeline', hint: 'Month-by-month jobs' },
+  { icon: '📣', name: 'Advocate', hint: 'Bring neighbors in' },
 ];
 
 /**
@@ -39,7 +40,8 @@ export function CoachMarks() {
         <View style={styles.card}>
           <Text style={styles.title}>Find your way around</Text>
           <Text style={styles.body}>
-            Five tabs take you from dreaming to planting. Here's what each one does —
+            Six tabs take you from dreaming to planting to bringing the street with
+            you. Here's what each one does —
             you can always come back from Vision.
           </Text>
           <Pressable style={styles.cta} onPress={markTourSeen}>

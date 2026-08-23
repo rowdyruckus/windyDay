@@ -36,6 +36,35 @@ be, then help you get there.**
   permaculture benefits.
 - **📅 Timeline** — A month-by-month calendar of when to plant, tend and harvest
   everything in your design, with your peak-bounty month highlighted.
+- **📣 Advocate** — The part that leaves your own fence line. Your ripple in
+  numbers, a poison-free pledge, ready-to-send invitations written with your own
+  figures in them, the case for local self-reliant food, and small local moves
+  that put trees and hens on other people's land.
+
+## Advocacy
+
+Growing your own is the start; the point is that it spreads. The **Advocate**
+tab (`src/data/advocacy.ts`) turns your design into an argument other people can
+act on:
+
+- **Your ripple** — trees planted, hens and their yearly eggs, unsprayed harvest,
+  ground kept poison-free, groceries not bought, invitations sent.
+- **The poison-free pledge** — no pesticides, herbicides or synthetic
+  fertilizer; diversity instead of a spray program; fertility built on site;
+  surplus, seed and cuttings shared; someone new invited every year.
+- **Invitations** — four messages (a neighbor, family or a friend, your town or
+  group, a local grower), each composed from your own numbers and zone and
+  handed to the system share sheet to edit and send. Sent invitations earn the
+  📣 Advocate milestone.
+- **The case** — eight short arguments for fruit trees, chickens and food that
+  doesn't travel, written for a conversation at a fence line.
+- **Do more, locally** — gift trees on the boundary, giving the glut away, scion
+  swaps, mapping the fruit on your street, asking the nursery for bare-root
+  stock, talking a neighbor into three hens, pushing the town to plant food
+  instead of ornamentals.
+
+Harvest, savings and egg figures are the app's own rough estimates at maturity —
+made for making the case, not for a farm budget.
 
 ## Region intelligence
 
@@ -117,9 +146,10 @@ src/
   audio/        ambient soundscape hook
   components/   reusable UI (plant cards, coop marker, hens, leaves, bird bath)
   data/         plant database, climate/zone logic, seasonal + geo helpers
+    advocacy.ts the case, the pledge, invitations & local actions
     region/     live region intelligence (Open-Meteo, Köppen, phzmapi, iNat)
   navigation/   tab + stack navigation
-  screens/      Vision, Site, Plants, PlantDetail, Design, Timeline
+  screens/      Vision, Site, Plants, PlantDetail, Design, Timeline, Advocate
   store/        persisted design state (zustand)
   theme.ts      design tokens + forest-layer metadata
   types.ts      core domain types

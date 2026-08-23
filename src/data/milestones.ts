@@ -11,7 +11,11 @@ export interface Milestone {
 }
 
 /** Gamified badges derived from the current design — earn them as you grow. */
-export function milestones(placed: PlacedPlant[], structures: PlacedStructure[]): Milestone[] {
+export function milestones(
+  placed: PlacedPlant[],
+  structures: PlacedStructure[],
+  invitesSent = 0
+): Milestone[] {
   const species = new Set<string>();
   const layers = new Set<ForestLayer>();
   let trees = 0;
@@ -36,5 +40,6 @@ export function milestones(placed: PlacedPlant[], structures: PlacedStructure[])
     { id: 'layers', icon: '🏛️', title: 'Seven layers', detail: 'Fill all 7 layers', earned: layers.size >= 7 },
     { id: 'abundance', icon: '🧺', title: 'Abundance', detail: '100 kg/yr harvest', earned: yieldKg >= 100 },
     { id: 'system', icon: '🐔', title: 'Living system', detail: 'Add a coop, hive, pond or barrel', earned: structures.length >= 1 },
+    { id: 'advocate', icon: '📣', title: 'Advocate', detail: 'Invite someone to grow their own', earned: invitesSent >= 1 },
   ];
 }

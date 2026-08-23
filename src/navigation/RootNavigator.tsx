@@ -13,6 +13,7 @@ import { SiteScreen } from '../screens/SiteScreen';
 import { PlantsScreen } from '../screens/PlantsScreen';
 import { DesignScreen } from '../screens/DesignScreen';
 import { TimelineScreen } from '../screens/TimelineScreen';
+import { AdvocateScreen } from '../screens/AdvocateScreen';
 import { PlantDetailScreen } from '../screens/PlantDetailScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 
@@ -39,6 +40,7 @@ const TAB_ICONS: Record<string, string> = {
   Plants: '🌱',
   Design: '🗺️',
   Timeline: '📅',
+  Advocate: '📣',
 };
 
 function Tabs() {
@@ -64,6 +66,7 @@ function Tabs() {
       <Tab.Screen name="Plants" component={PlantsScreen} />
       <Tab.Screen name="Design" component={DesignScreen} />
       <Tab.Screen name="Timeline" component={TimelineScreen} />
+      <Tab.Screen name="Advocate" component={AdvocateScreen} />
     </Tab.Navigator>
   );
 }

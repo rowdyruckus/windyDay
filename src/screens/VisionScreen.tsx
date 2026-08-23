@@ -102,9 +102,10 @@ export function VisionScreen() {
   const co2 = useMemo(() => totalCo2KgPerYear(placedList), [placedList]);
   const pollinators = useMemo(() => pollinatorReport(placedList), [placedList]);
   const recs = useMemo(() => recommendPlants(placedList, site, 3), [placedList, site]);
+  const invitesSent = useDesignStore((s) => s.invitesSent);
   const badges = useMemo(
-    () => milestones(placedList, structures),
-    [placedList, structures]
+    () => milestones(placedList, structures, invitesSent),
+    [placedList, structures, invitesSent]
   );
   const earnedCount = badges.filter((b) => b.earned).length;
 
@@ -425,9 +426,17 @@ export function VisionScreen() {
                 </View>
               </View>
             )}
-            <Pressable style={styles.shareBtn} onPress={shareParadise}>
-              <Text style={styles.shareBtnText}>📤 Share my paradise</Text>
-            </Pressable>
+            <View style={styles.shareRow}>
+              <Pressable style={styles.shareBtn} onPress={shareParadise}>
+                <Text style={styles.shareBtnText}>📤 Share my paradise</Text>
+              </Pressable>
+              <Pressable
+                style={styles.shareBtn}
+                onPress={() => navigation.navigate('Advocate')}
+              >
+                <Text style={styles.shareBtnText}>📣 Invite a neighbor</Text>
+              </Pressable>
+            </View>
           </View>
         )}
 
@@ -759,7 +768,9 @@ const styles = StyleSheet.create({
   },
   statNum: { color: colors.primary, fontSize: 22, fontWeight: '800' },
   statLbl: { color: colors.textMuted, fontSize: 11, marginTop: 2 },
+  shareRow: { flexDirection: 'row', gap: spacing.sm },
   shareBtn: {
+    flex: 1,
     marginTop: spacing.md,
     backgroundColor: colors.surfaceAlt,
     borderColor: colors.primary,

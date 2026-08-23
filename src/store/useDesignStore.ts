@@ -44,6 +44,10 @@ interface DesignState {
   tourSeen: boolean;
   /** User dismissed the get-started checklist on Vision. */
   gettingStartedDismissed: boolean;
+  /** ISO date the poison-free pledge was taken, or null. */
+  pledgedAt: string | null;
+  /** How many advocacy invitations the user has sent. */
+  invitesSent: number;
   hydrated: boolean;
 
   setLocation: (latitude: number, longitude: number, zone: number) => void;
@@ -85,6 +89,12 @@ interface DesignState {
   resetOnboarding: () => void;
   markTourSeen: () => void;
   dismissGettingStarted: () => void;
+
+  /** Take (or withdraw) the poison-free pledge. */
+  takePledge: () => void;
+  clearPledge: () => void;
+  /** Count an invitation the user actually sent. */
+  recordInvite: () => void;
   setUnits: (units: Units) => void;
 
   /** Clear the saved site & region so the example garden shows again. */
@@ -131,6 +141,8 @@ export const useDesignStore = create<DesignState>()(
       units: 'imperial',
       tourSeen: false,
       gettingStartedDismissed: false,
+      pledgedAt: null,
+      invitesSent: 0,
       hydrated: false,
 
       setLocation: (latitude, longitude, zone) =>
@@ -272,6 +284,10 @@ export const useDesignStore = create<DesignState>()(
         set(() => ({ onboarded: false, tourSeen: false, gettingStartedDismissed: false })),
       markTourSeen: () => set(() => ({ tourSeen: true })),
       dismissGettingStarted: () => set(() => ({ gettingStartedDismissed: true })),
+
+      takePledge: () => set(() => ({ pledgedAt: new Date().toISOString() })),
+      clearPledge: () => set(() => ({ pledgedAt: null })),
+      recordInvite: () => set((s) => ({ invitesSent: s.invitesSent + 1 })),
       setUnits: (units) => set(() => ({ units })),
 
       clearSite: () =>
@@ -298,6 +314,8 @@ export const useDesignStore = create<DesignState>()(
         units: s.units,
         tourSeen: s.tourSeen,
         gettingStartedDismissed: s.gettingStartedDismissed,
+        pledgedAt: s.pledgedAt,
+        invitesSent: s.invitesSent,
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHydrated();
